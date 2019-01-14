@@ -202,6 +202,7 @@ local nameplates_personal = {
     -- Priest
         [194249] = {class = "PRIEST" }, -- Void Form   
         [288343] = {class = "PRIEST" }, -- Mind Sear Proc  
+        [275544] = {class = "PRIEST" }, -- Depth of Shadow  
 };
 
 -- Table for specific npcid color / TODO : Add Moblist colors to options
@@ -254,6 +255,23 @@ local totemlist = {
         [101398] = {icon = 537021}, -- Psyfiend
 
         [119052] = {icon = 603532}, -- War Banner    
+}
+
+local PowerPrediction = {
+    [8] = { -- Astral Power
+        [194153] = {power = 12}, -- Lunar Strike
+        [190984] = {power = 8}, -- Solar Wrath
+        [202347] = {power = 8}, -- Stellar Flare
+        [274281] = {power = 10}, -- New Moon
+        [274282] = {power = 20}, -- Half Moon
+        [274282] = {power = 40}, -- Full Moon
+    },
+    [13] = { -- Insanity
+        [205351] = {power = 15}, -- Void Blast
+        [8092] = {power = 12}, -- Mind Blast
+        [34914] = {power = 6}, -- Vampiric Touch
+        [263346] = {power = 30}, -- Dark Void
+    },
 }
 
 -------------------------------------------------------------------------------
@@ -648,6 +666,7 @@ function JokPlates:SetupOptions()
 				                step = 1,
 				                order = 2,
 				                set = function(info,val) self.settings.personalManaHeight = val 
+                                DefaultCompactNamePlatePlayerFrameSetUpOptions.healthBarHeight = val
 				                ClassNameplateManaBarFrame:SetSize(self.settings.personalWidth-24, val)
 				                end,
 				                get = function(info, val) return self.settings.personalManaHeight end
@@ -928,11 +947,11 @@ function JokPlates:OnEnable()
     self:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
     self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
     self:RegisterEvent('UPDATE_MOUSEOVER_UNIT')
+    self:RegisterEvent('UNIT_HEALTH_FREQUENT')
 
     self:SecureHook('CompactUnitFrame_UpdateName')
     self:SecureHook('CompactUnitFrame_UpdateHealthColor')
-    self:SecureHook('ClassNameplateManaBar_OnUpdate')  
-    self:SecureHook('CompactUnitFrame_UpdateStatusText')
+    self:SecureHook('ClassNameplateManaBar_OnUpdate')
     self:SecureHook('DefaultCompactNamePlateFrameAnchorInternal')   
     self:SecureHook(NamePlateDriverFrame, 'SetupClassNameplateBars', 'SetupClassNameplateBar')
     
@@ -1174,6 +1193,22 @@ function JokPlates:AddHealthbarText(frame)
     end
 end
 
+function JokPlates:UpdateHealth(frame, unit)
+    if ( not frame.healthBar.LeftText or not frame.healthBar.RightText ) then return end
+
+    local health = UnitHealth(unit)
+    local maxHealth = UnitHealthMax(unit)
+    local perc = math.floor(100 * (health/maxHealth))
+
+    if ( health >= 1 ) then
+        frame.healthBar.LeftText:SetText(perc.."%")
+        frame.healthBar.RightText:SetText(self:FormatValue(health))
+    else
+        frame.healthBar.LeftText:SetText("")
+        frame.healthBar.RightText:SetText("")
+    end
+end
+
 -- UpdateBuffs Hook
 function JokPlates_UpdateBuffs(self, unit, filter, showAll)
 
@@ -1268,10 +1303,9 @@ end
 -----------------------------------------
 
 function JokPlates:UpdateCastbar(frame)
-    
-    -- --Castbar.
-    frame.castBar:SetStatusBarTexture(statusBar)
 
+    if ( frame:IsForbidden() ) then return end
+    
     -- Castbar Timer.
 
     if ( not frame.castBar.CastTime ) then
@@ -1396,6 +1430,8 @@ end
 
 function JokPlates:PLAYER_ENTERING_WORLD()
 
+    DefaultCompactNamePlatePlayerFrameSetUpOptions.healthBarHeight = JokPlates.db.profile.personalManaHeight
+
     -- Remove Larger Nameplates Function (thx Plater)
     InterfaceOptionsNamesPanelUnitNameplatesMakeLarger:Disable()
     InterfaceOptionsNamesPanelUnitNameplatesMakeLarger.setFunc = function() end
@@ -1431,7 +1467,10 @@ function JokPlates:NAME_PLATE_CREATED(_, namePlate)
     frame.selectionHighlight:SetTexture(statusBar)
     frame.castBar:SetStatusBarTexture(statusBar)
 
-    frame.RaidTargetFrame:SetScale(1.3)
+    frame.RaidTargetFrame:SetScale(1.2)
+    frame.RaidTargetFrame:SetPoint("RIGHT", frame.healthBar, "LEFT", -7, 0)
+
+    self:UpdateCastbar(frame)
 
     self:AddHealthbarText(namePlate)
 
@@ -1482,14 +1521,9 @@ function JokPlates:NAME_PLATE_UNIT_ADDED(_, unit)
         end
     end
 
-    if IsActiveBattlefieldArena() then
-        frame.RaidTargetFrame:ClearAllPoints()
-        frame.RaidTargetFrame:SetSize(32,32)
-        frame.RaidTargetFrame:SetPoint("TOP", frame.name, "BOTTOM", 0, -15)
-    end
-
     if UnitIsUnit(frame.displayedUnit, "player") then 
         frame.healthBar:SetHeight(self.settings.personalHealthHeight)
+        self:UpdateHealth(frame, "player")
         return 
     end
 end
@@ -1517,7 +1551,7 @@ function JokPlates:CompactUnitFrame_UpdateName(frame)
     end
     
     -- Arena Number on Nameplates.  
-    if IsActiveBattlefieldArena() and frame.displayedUnit:find("nameplate") and self.settings.arenanumber then 
+    if IsActiveBattlefieldArena() and self.settings.arenanumber then 
         for i=1,3 do 
             if UnitIsUnit(frame.displayedUnit, "arena"..i) then 
                 frame.name:SetText(i)
@@ -1544,118 +1578,49 @@ function JokPlates:SetupClassNameplateBar(self, OnTarget, Bar)
 end
 
 function JokPlates:ClassNameplateManaBar_OnUpdate(self)
-    ClassNameplateManaBarFrame:SetHeight(JokPlates.db.profile.personalManaHeight)
     local currValue = UnitPower("player", self.powerType);
-    self.text:SetText(JokPlates:FormatValue(currValue))  
-  
-    if class == "DRUID" then 
-        local lunarStrike = GetSpellInfo(194153)
-        local solarWrath = GetSpellInfo(190984)
-        local stellarFlare = GetSpellInfo(202347)
-        local newMoon = GetSpellInfo(274281)
-        local halfMoon = GetSpellInfo(274282)
-        local fullMoon = GetSpellInfo(274283)
+    local predictedValue = currValue
 
-        local spellCast = UnitCastingInfo('player')
-        local currValueAP = UnitPower("player", self.powerType);
-        local currValue = UnitPower("player", self.powerType);
+    local castingSpellID = select(9, UnitCastingInfo('player'))
 
-        if spellCast == lunarStrike then
-            currValueAP = currValue + 12
-        elseif spellCast == solarWrath then
-            currValueAP = currValue + 8
-        elseif spellCast == stellarFlare then
-            currValueAP = currValue + 8
-        elseif spellCast == newMoon then
-            currValueAP = currValue + 10
-        elseif spellCast == halfMoon then
-            currValueAP = currValue + 20
-        elseif spellCast == fullMoon then
-            currValueAP = currValue + 40
-        end
-
-        if ( currValue ~= currValueAP and spellCast ) then
-            self.forceUpdate = nil;
-            self.text:SetText(currValueAP)
-            self.FeedbackFrame:StartFeedbackAnim(currValue or 0, currValueAP);
-            if ( self.FullPowerFrame.active ) then
-                self.FullPowerFrame:StartAnimIfFull(self.currValue or 0, currValue);
+    if PowerPrediction[self.powerType] then
+        for spellID, spell in pairs(PowerPrediction[self.powerType]) do
+            if castingSpellID == spellID then
+                predictedValue = currValue + spell.power
             end
-            self.currValue = currValue;
-        else
-            self.FeedbackFrame.GainGlowTexture:Hide()
         end
-    elseif class == "PRIEST" then
-        local void = GetSpellInfo(205351)
-        local mindBlast = GetSpellInfo(8092)
-        local vampiricTouch = GetSpellInfo(34914)
-        local darkVoid = GetSpellInfo(263346)
-
-        local spellCast = UnitCastingInfo('player')
-        local currValueAP = UnitPower("player", self.powerType);
-        local currValue = UnitPower("player", self.powerType);
-
-        if spellCast == void then
-            currValueAP = currValue + 15
-        elseif spellCast == mindBlast then
-            currValueAP = currValue + 12
-        elseif spellCast == vampiricTouch then
-            currValueAP = currValue + 6
-        elseif spellCast == darkVoid then
-            currValueAP = currValue + 30
-        end
-
-        if ( currValue ~= currValueAP and spellCast ) then
-            self.forceUpdate = nil;
-            self.text:SetText(currValueAP)
-            self.FeedbackFrame:StartFeedbackAnim(currValue or 0, currValueAP);
-            if ( self.FullPowerFrame.active ) then
-                self.FullPowerFrame:StartAnimIfFull(self.currValue or 0, currValue);
-            end
-            self.currValue = currValue;
-        else
-            self.FeedbackFrame.GainGlowTexture:Hide()
-        end
-
     end
+
+    if ( currValue ~= predictedValue and castingSpellID ) then
+        self.forceUpdate = nil;
+        
+        self.FeedbackFrame:StartFeedbackAnim(currValue or 0, predictedValue);
+        if ( self.FullPowerFrame.active ) then
+            self.FullPowerFrame:StartAnimIfFull(self.currValue or 0, currValue);
+        end
+        self.currValue = currValue;
+    else
+        self.FeedbackFrame.GainGlowTexture:Hide()
+    end
+
+    self.text:SetText(JokPlates:FormatValue(predictedValue))
 end
 
-function JokPlates:CompactUnitFrame_UpdateStatusText(frame)
-    if ( frame:IsForbidden() ) then return end
-    if ( not frame.isNameplate ) then return end
+function JokPlates:UNIT_HEALTH_FREQUENT(_, unit)
+    if not UnitIsUnit(unit, "player") then return end
 
-    if ( not frame.healthBar.LeftText or not frame.healthBar.RightText ) then return end
+    local namePlate = C_NamePlate.GetNamePlateForUnit('player')
+    if not namePlate then return end
+    local frame = namePlate.UnitFrame
 
-    local health = UnitHealth(frame.displayedUnit)
-    local maxHealth = UnitHealthMax(frame.displayedUnit)
-    local perc = math.floor(100 * (health/maxHealth))
-
-    if ( health >= 1 ) then
-    	frame.healthBar.LeftText:SetText(perc.."%")
-        frame.healthBar.RightText:SetText(JokPlates:FormatValue(health))
-    else
-        frame.healthBar.LeftText:SetText("")
-        frame.healthBar.RightText:SetText("")
-    end
-
-    if not UnitIsUnit(frame.displayedUnit, "player") then 
-    	frame.healthBar.LeftText:Hide()
-        frame.healthBar.RightText:Hide()
-    else
-    	frame.healthBar.LeftText:Show()
-        frame.healthBar.RightText:Show()
-    end
+    self:UpdateHealth(frame, unit)
 end
 
 function JokPlates:DefaultCompactNamePlateFrameAnchorInternal(frame, setupOptions)
     if ( frame:IsForbidden() ) then return end
     if ( not frame.isNameplate ) then return end
 
-    --if not UnitIsPlayer(frame.unit) and not UnitIsFriend("player", frame.displayedUnit) then
-        frame.healthBar:SetHeight(JokPlates.db.profile.healthHeight)
-    --end
-
-    self:UpdateCastbar(frame)
+    frame.healthBar:SetHeight(JokPlates.db.profile.healthHeight)
 end
 
 -- Mouseover Highlight
@@ -2213,6 +2178,7 @@ function JokPlates:CC()
         [91802] = 2, -- Shambling Rush (Death Knight)
         [96231] = 4, -- Rebuke (Paladin)
         [93985] = 4, -- Skull Bash (Feral)
+        --[97547] = 5, -- Solar Beam (Druid)
         [106839] = 4, -- Skull Bash (Feral)
         [115781] = 6, -- Optical Blast (Warlock)
         [116705] = 4, -- Spear Hand Strike (Monk)

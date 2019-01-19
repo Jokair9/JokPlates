@@ -3,36 +3,23 @@ JokPlates = LibStub("AceAddon-3.0"):NewAddon("JokPlates", "AceEvent-3.0", "AceHo
 -------------------------------------------------------------------------------
 -- Locals
 -------------------------------------------------------------------------------
-
+local LCG = LibStub("LibCustomGlow-1.0")
 local _, class = UnitClass("player")
+
+local Jok_PlateHolder = {}
+
+local glowType = "Standard"
 
 local castbarFont = SystemFont_Shadow_Small:GetFont()
 local statusBar = "Interface\\AddOns\\JokPlates\\media\\UI-StatusBar"
 
 local nameplates_defaults = {
     profile = {
-        enable = true,
-        nameSize = 9,
-        friendlyName = true,
         arenanumber = true,
-        globalScale = 1,
-        targetScale = 1,
-        importantScale = 1.2,
         sticky = true,
-        nameplateAlpha = 1,
-        nameplateRange = 60,
-        overlap = true,
-        verticalOverlap = 0.9,
-        horizontalOverlap = 0.7,
-        friendlymotion = true,
         clickthroughfriendly = true,
-        enemytotem = true,
-        enemypets = false,
-        enemyguardian = false,
-        enemyminus = false, 
         healthWidth = 120,
         healthHeight = 7,
-        largerNameplates = false,
         buffFrameScale = 1,
         personalWidth = 150,
         personalManaHeight = 14,
@@ -45,9 +32,222 @@ local nameplates_defaults = {
         	},
         	debuffs = {},
         	personal = {},
+            custom = {},
         },                        
     }
 }
+
+local ccList = {
+    -- Higher up = higher display priority
+
+    -- CCs
+    5211,   -- Mighty Bash (Stun)
+    108194, -- Asphyxiate (Stun)
+    199804, -- Between the Eyes (Stun)
+    118905, -- Static Charge (Stun)
+    1833,   -- Cheap Shot (Stun)
+    853,    -- Hammer of Justice (Stun)
+    179057, -- Chaos Nova (Stun)
+    132169, -- Storm Bolt (Stun)
+    408,    -- Kidney Shot (Stun)
+    163505, -- Rake (Stun)
+    119381, -- Leg Sweep (Stun)
+    89766,  -- Axe Toss (Stun)
+    30283,  -- Shadowfury (Stun)
+    24394,  -- Intimidation (Stun)
+    211881, -- Fel Eruption (Stun)
+    91800,  -- Gnaw (Stun)
+    205630, -- Illidan's Grasp (Stun)
+    203123, -- Maim (Stun)
+    200200, -- Holy Word: Chastise, Censure Talent (Stun)
+    22703,  -- Infernal Awakening (Stun)
+    132168, -- Shockwave (Stun)
+    20549,  -- War Stomp (Stun)
+    199085, -- Warpath (Stun)
+    204437, -- Lightning Lasso (Stun)
+    64044,  -- Psychic Horror (Stun)
+    255723, -- Bull Rush (Stun)
+    202346, -- Double Barrel (Stun)
+    213688, -- Fel Cleave (Stun)
+    204399, -- Earthfury (Stun)
+    91717,  -- Monstrous Blow (Stun)
+
+
+    33786,  -- Cyclone (Disorient)
+    5246,   -- Intimidating Shout (Disorient)
+    8122,   -- Psychic Scream (Disorient)
+    2094,   -- Blind (Disorient)
+    605,    -- Mind Control (Disorient)
+    105421, -- Blinding Light (Disorient)
+    207167, -- Blinding Sleet (Disorient)
+    31661,  -- Dragon's Breath (Disorient)
+    207685, -- Sigil of Misery (Disorient)
+    198909, -- Song of Chi-ji (Disorient)
+    202274, -- Incendiary Brew (Disorient)
+    118699, -- Fear (Disorient)
+    6358,   -- Seduction (Disorient)
+    261589, -- Seduction 2 (Disorient)
+    87204,  -- Sin and Punishment (Disorient)
+    2637,   -- Hibernate (Disorient)
+    226943, -- Mind Bomb (Disorient)
+    236748, -- Intimidating Roar (Disorient)
+
+    51514,  -- Hex (Incapacitate)
+    211004, -- Hex: Spider (Incapacitate)
+    210873, -- Hex: Raptor (Incapacitate)
+    211015, -- Hex: Cockroach (Incapacitate)
+    211010, -- Hex: Snake (Incapacitate)
+    196942, -- Hex: Voodoo Totem (Incapacitate)
+    277784, -- Hex: Wicker Mongrel (Incapacitate)
+    277778, -- Hex: Zandalari Tendonripper (Incapacitate)
+    118,    -- Polymorph (Incapacitate)
+    61305,  -- Polymorph: Black Cat (Incapacitate)
+    28272,  -- Polymorph: Pig (Incapacitate)
+    61721,  -- Polymorph: Rabbit (Incapacitate)
+    61780,  -- Polymorph: Turkey (Incapacitate)
+    28271,  -- Polymorph: Turtle (Incapacitate)
+    161353, -- Polymorph: Polar Bear Cub (Incapacitate)
+    126819, -- Polymorph: Porcupine (Incapacitate)
+    161354, -- Polymorph: Monkey (Incapacitate)
+    161355, -- Polymorph: Penguin (Incapacitate)
+    161372, -- Polymorph: Peacock (Incapacitate)
+    277792, -- Polymorph: Bumblebee (Incapacitate)
+    277787, -- Polymorph: Baby Direhorn (Incapacitate)
+    3355,   -- Freezing Trap (Incapacitate)
+    203337, -- Freezing Trap, Diamond Ice Honor Talent (Incapacitate)
+    115078, -- Paralysis (Incapacitate)
+    213691, -- Scatter Shot (Incapacitate)
+    6770,   -- Sap (Incapacitate)
+    20066,  -- Repentance (Incapacitate)
+    200196, -- Holy Word: Chastise (Incapacitate)
+    221527, -- Imprison, Detainment Honor Talent (Incapacitate)
+    217832, -- Imprison (Incapacitate)
+    99,     -- Incapacitating Roar (Incapacitate)
+    82691,  -- Ring of Frost (Incapacitate)
+    1776,   -- Gouge (Incapacitate)
+    107079, -- Quaking Palm (Incapacitate)
+    236025, -- Enraged Maim (Incapacitate)
+    197214, -- Sundering (Incapacitate)
+
+    -- Immunities
+    642,    -- Divine Shield
+    186265, -- Aspect of the Turtle
+    45438,  -- Ice Block
+    47585,  -- Dispersion
+    1022,   -- Blessing of Protection
+    204018, -- Blessing of Spellwarding
+    216113, -- Way of the Crane
+    31224,  -- Cloak of Shadows
+    212182, -- Smoke Bomb
+    212183, -- Smoke Bomb
+    8178,   -- Grounding Totem Effect
+    199448, -- Blessing of Sacrifice
+
+    -- Interrupts
+    1766,   -- Kick (Rogue)
+    2139,   -- Counterspell (Mage)
+    6552,   -- Pummel (Warrior)
+    19647,  -- Spell Lock (Warlock)
+    47528,  -- Mind Freeze (Death Knight)
+    57994,  -- Wind Shear (Shaman)
+    91802,  -- Shambling Rush (Death Knight)
+    96231,  -- Rebuke (Paladin)
+    106839, -- Skull Bash (Feral)
+    115781, -- Optical Blast (Warlock)
+    116705, -- Spear Hand Strike (Monk)
+    132409, -- Spell Lock (Warlock)
+    147362, -- Countershot (Hunter)
+    171138, -- Shadow Lock (Warlock)
+    183752, -- Consume Magic (Demon Hunter)
+    187707, -- Muzzle (Hunter)
+    212619, -- Call Felhunter (Warlock)
+    231665, -- Avengers Shield (Paladin)
+
+    -- Anti CCs
+    23920,  -- Spell Reflection
+    216890, -- Spell Reflection (Honor Talent)
+    213610, -- Holy Ward
+    212295, -- Nether Ward
+    48707,  -- Anti-Magic Shell
+    5384,   -- Feign Death
+    213602, -- Greater Fade
+
+    -- Silences
+    81261,  -- Solar Beam
+    202933, -- Spider Sting
+    233022, -- Spider Sting 2
+    1330,   -- Garrote
+    15487,  -- Silence
+    199683, -- Last Word
+    47476,  -- Strangulate
+    31935,  -- Avenger's Shield
+    204490, -- Sigil of Silence
+    217824, -- Shield of Virtue
+    43523,  -- Unstable Affliction Silence 1
+    196364, -- Unstable Affliction Silence 2
+
+    -- Disarms
+    236077, -- Disarm
+    236236, -- Disarm (Protection)
+    209749, -- Faerie Swarm (Disarm)
+    233759, -- Grapple Weapon
+    207777, -- Dismantle
+
+    -- Roots
+    339,    -- Entangling Roots
+    170855, -- Entangling Roots (Nature's Grasp)
+    201589, -- Entangling Roots (Tree of Life)
+    235963, -- Entangling Roots (Feral honor talent)
+    122,    -- Frost Nova
+    102359, -- Mass Entanglement
+    64695,  -- Earthgrab
+    200108, -- Ranger's Net
+    212638, -- Tracker's Net
+    162480, -- Steel Trap
+    204085, -- Deathchill
+    233395, -- Frozen Center
+    233582, -- Entrenched in Flame
+    201158, -- Super Sticky Tar
+    33395,  -- Freeze
+    228600, -- Glacial Spike
+    116706, -- Disable
+    45334,  -- Immobilized
+    53148,  -- Charge (Hunter Pet)
+    190927, -- Harpoon
+    136634, -- Narrow Escape (unused?)
+    198121, -- Frostbite
+    117526, -- Binding Shot
+    207171, -- Winter is Coming
+}
+
+local priorityList = {}
+
+local interrupts = {
+    [1766] = 5, -- Kick (Rogue)
+    [2139] = 6, -- Counterspell (Mage)
+    [6552] = 4, -- Pummel (Warrior)
+    [19647] = 6, -- Spell Lock (Warlock)
+    [47528] = 3, -- Mind Freeze (Death Knight)
+    [57994] = 3, -- Wind Shear (Shaman)
+    [91802] = 2, -- Shambling Rush (Death Knight)
+    [96231] = 4, -- Rebuke (Paladin)
+    [93985] = 4, -- Skull Bash (Feral)
+    --[97547] = 5, -- Solar Beam (Druid)
+    [106839] = 4, -- Skull Bash (Feral)
+    [115781] = 6, -- Optical Blast (Warlock)
+    [116705] = 4, -- Spear Hand Strike (Monk)
+    [132409] = 6, -- Spell Lock (Warlock)
+    [147362] = 3, -- Countershot (Hunter)
+    [171138] = 6, -- Shadow Lock (Warlock)
+    [183752] = 3, -- Consume Magic (Demon Hunter)
+    [187707] = 3, -- Muzzle (Hunter)
+    [212619] = 6, -- Call Felhunter (Warlock)
+    [231665] = 3, -- Avengers Shield (Paladin)
+}
+
+for k, v in ipairs(ccList) do
+    priorityList[v] = k
+end
 
 local nameplates_buffs = {
 
@@ -243,18 +443,25 @@ local moblist = {
     [144086] = {tag = "OTHER"}, -- Training Dummy
 }
 
+local glowMob = {              
+    [120651] = true, -- Explosives Orbs
+
+    [144085] = true, -- Training Dummy
+    [144086] = true, -- Training Dummy
+}
+
 -- Totem list to anchor icon to nameplate / TODO : Add totem list to options
 local totemlist = {
-        [5925] = {icon = 136039}, -- Grounding Totem
-        [105427] = {icon = 135829}, -- Skyfury Totem
-        [2630] = {icon = 136102}, -- Earthbind Totem
-        [53006] = {icon = 237586}, -- Spirit Link Totem   
-        [60561] = {icon = 136100}, -- Earthgrab Totem   
-        [61245] = {icon = 136013}, -- Capacitor Totem
-        
-        [101398] = {icon = 537021}, -- Psyfiend
+    [5925] = {icon = 136039}, -- Grounding Totem
+    [105427] = {icon = 135829}, -- Skyfury Totem
+    [2630] = {icon = 136102}, -- Earthbind Totem
+    [53006] = {icon = 237586}, -- Spirit Link Totem   
+    [60561] = {icon = 136100}, -- Earthgrab Totem   
+    [61245] = {icon = 136013}, -- Capacitor Totem
+    
+    [101398] = {icon = 537021}, -- Psyfiend
 
-        [119052] = {icon = 603532}, -- War Banner    
+    [119052] = {icon = 603532}, -- War Banner    
 }
 
 local PowerPrediction = {
@@ -297,6 +504,71 @@ function JokPlates:Refresh()
 end
 
 function JokPlates:SetupOptions()
+    local customSpellInfo = {
+        delete = {
+            type = "execute",
+            name = "Delete",
+            desc = "Delete the cooldown",
+            func = function(info)
+                local spellId = info[#info-1]:gsub("spell", "")
+                spellId = tonumber(spellId)
+                JokPlates.db.profile.spells.custom[spellId] = nil
+
+                JokPlates:SetupOptions()
+            end,
+            arg = key,
+            order = 2,
+        },
+        lb = {
+            name = "",
+            type = "header",
+            order = 3,
+        },
+        visibility = {
+            name = "Visibility",
+            type = "group",
+            inline = true,
+            order = 4,
+            
+            args = {
+                personal = {
+                    type = "toggle",
+                    name = "Personal Nameplate",
+                    desc = "",
+                    order = 1,
+                    width = "full",
+                    set = function(info, val) 
+                        local spellId = info[#info-2]:gsub("spell", "")
+                        spellId = tonumber(spellId)
+                        JokPlates.db.profile.spells.custom[spellId].personal = val 
+                    end,
+                    get = function(info) 
+                        local spellId = info[#info-2]:gsub("spell", "")
+                        spellId = tonumber(spellId)
+                        return JokPlates.db.profile.spells.custom[spellId].personal
+                    end
+                },
+                all = {
+                    type = "toggle",
+                    name = "All Nameplates",
+                    desc = "",
+                    order = 2,
+                    width = "full",
+                    set = function(info,val) 
+                        local spellId = info[#info-2]:gsub("spell", "")
+                        spellId = tonumber(spellId)
+                        JokPlates.db.profile.spells.custom[spellId].all = val 
+                    end,
+                    get = function(info) 
+                        local spellId = info[#info-2]:gsub("spell", "")
+                        spellId = tonumber(spellId)
+                        return JokPlates.db.profile.spells.custom[spellId].all
+                    end
+                },
+            },
+        },    
+    }
+
 	local spells = {
 		buffFrameScale = {
             type = "range",
@@ -341,11 +613,30 @@ function JokPlates:SetupOptions()
 			type = "group",
 			order = 3,
 			args = {},
-		}
+		},
+        custom = {
+            name = "Custom Spells",
+            type = "group",
+            order = 4,
+            args = {
+                spellId = {
+                    name = "Add Custom Spell",
+                    type = "input",
+                    set = function(info, state)
+                        spellId = tonumber(state)
+                        local name = GetSpellInfo(spellId)
+                        if spellId and name then
+                            JokPlates.db.profile.spells.custom[spellId] = JokPlates.db.profile.spells.custom[spellId] or { personal = false, all = false }
+
+                            JokPlates:SetupOptions()
+                        end
+                    end,
+                }
+            },
+        },
 	}
 		
 	for i = 1, MAX_CLASSES do
-
 		for spellID, spell in pairs(nameplates_buffs) do
 			local key = "spell"..spellID
 			if spell.class and spell.class == CLASS_SORT_ORDER[i] then
@@ -519,6 +810,19 @@ function JokPlates:SetupOptions()
 		end
 	end
 
+    for spellID, spell in pairs(JokPlates.db.profile.spells.custom) do
+        local key = "spell"..spellID
+        local name = GetSpellInfo(spellID)
+
+        spells["custom"].args[key] = {
+            name = name,
+            type = "group",
+            childGroups = "tab",
+            args = customSpellInfo,
+            icon = GetSpellTexture(spellID),
+        }
+    end
+
 	self.options = {
 		name = "JokPlates",
 		descStyle = "inline",
@@ -551,7 +855,7 @@ function JokPlates:SetupOptions()
 				        type = "group",
 				        inline = true,
 				        order = 10,
-				        disabled = function(info) return not self.settings.enable end,
+				        
 				        args = {
 				            globalScale = {
 				                type = "range",
@@ -603,7 +907,7 @@ function JokPlates:SetupOptions()
 				        type = "group",
 				        inline = true,
 				        order = 50,
-				        disabled = function(info) return not self.settings.enable end,
+				        
 				        args = {
 				            healthHeight = {
 				                type = "range",
@@ -640,7 +944,7 @@ function JokPlates:SetupOptions()
 				        type = "group",
 				        inline = true,
 				        order = 50,
-				        disabled = function(info) return not self.settings.enable end,
+				        
 				        args = {
 				        	personalHealthHeight = {
 				                type = "range",
@@ -700,7 +1004,7 @@ function JokPlates:SetupOptions()
                                     val = floor (val)
                     
                                     SetCVar ("nameplateSelfBottomInset", val / 100)
-                                    SetCVar ("nameplateSelfTopInset", abs (val - 95) / 100)
+                                    SetCVar ("nameplateSelfTopInset", abs (val - 94) / 100)
                                 end,
                                 get = function(info, val) return tonumber (GetCVar ("nameplateSelfBottomInset")*100) end
                             },
@@ -719,7 +1023,7 @@ function JokPlates:SetupOptions()
 				        type = "group",
 				        inline = true,
 				        order = 30,
-				        disabled = function(info) return not self.settings.enable end,
+				        
 				        args = {
 				            stacking = {
 				                type = "toggle",
@@ -728,22 +1032,10 @@ function JokPlates:SetupOptions()
 				                descStyle = "inline",
 				                width = "full",
 				                order = 1,
-				                set = function(info,val) self.settings.overlap = val
-				                    SetCVar("nameplateMotion", val)
+				                set = function(info,val)
+				                    self:SetCVar("nameplateMotion", val)
 				                end,
-				                get = function(info) return GetCVar("nameplateMotion") end
-				            },
-				            friendlyName = {
-				                type = "toggle",
-				                name = "Overlap Friendly Names",
-				                desc = "|cffaaaaaaForce Friendly Nameplates to not stack. |r",
-				                descStyle = "inline",
-				                width = "full",
-				                order = 2,
-				                set = function(info,val) self.settings.friendlymotion = val
-				                StaticPopup_Show ("ReloadUI_Popup")
-				                end,
-				                get = function(info) return self.settings.friendlymotion end
+				                get = function(info) return self:GetCVar("nameplateMotion") end
 				            },
 				            verticalOverlap = {
 				                type = "range",
@@ -754,7 +1046,7 @@ function JokPlates:SetupOptions()
 				                max = 1.3,
 				                step = 0.1,
 				                order = 3,
-				                disabled = function(info) return  not self.settings.overlap or not self.settings.enable end,
+				                disabled = function(info) return  not self:GetCVar("nameplateMotion") end,
 				                set = function(info,val)
 				                    SetCVar("nameplateOverlapV", val)
 				                end,
@@ -769,7 +1061,7 @@ function JokPlates:SetupOptions()
 				                max = 1.3,
 				                step = 0.1,
 				                order = 4,
-				                disabled = function(info) return  not self.settings.overlap or not self.settings.enable end,
+				                disabled = function(info) return  not self:GetCVar("nameplateMotion") end,
 				                set = function(info,val)
 				                    SetCVar("nameplateOverlapH", val)
 				                end,
@@ -782,7 +1074,7 @@ function JokPlates:SetupOptions()
 				        type = "group",
 				        inline = true,
 				        order = 20,
-				        disabled = function(info) return not self.settings.enable end,
+				        
 				        args = {
 				            sticky = {
 				                name = "Sticky Nameplates",
@@ -803,19 +1095,6 @@ function JokPlates:SetupOptions()
 				                end,
 				                get = function(info) return self.settings.sticky end
 				            },
-				            nameplateAlpha = {
-				                type = "range",
-				                isPercent = true,
-				                name = "Nameplate Alpha",
-				                desc = "",
-				                min = 0,
-				                max = 1,
-				                step = 0.1,
-				                order = 3,
-				                set = function(info,val) self.settings.nameplateAlpha = val
-				                end,
-				                get = function(info) return self.settings.nameplateAlpha end
-				            },
 				            nameplateRange = {
 				                type = "range",
 				                isPercent = false,
@@ -825,10 +1104,10 @@ function JokPlates:SetupOptions()
 				                max = 80,
 				                step = 1,
 				                order = 4,
-				                set = function(info,val) self.settings.nameplateRange = val
+				                set = function(info,val) 
 				                    SetCVar("nameplateMaxDistance", val)
 				                end,
-				                get = function(info) return self.settings.nameplateRange end
+				                get = function(info) return tonumber(GetCVar("nameplateMaxDistance")) end
 				            },
 				        },
 				    },
@@ -837,37 +1116,37 @@ function JokPlates:SetupOptions()
 				        type = "group",
 				        inline = true,
 				        order = 40,
-				        disabled = function(info) return not self.settings.enable end,
+				        
 				        args = {
 				            enemytotem = {
 				                type = "toggle",
 				                name = "Show Enemy Totems",
 				                desc = "",
 				                order = 1,
-				                set = function(info,val) self.settings.enemytotem = val
-				                    SetCVar("nameplateShowEnemyTotems", val)
+				                set = function(info,val) 
+				                    self:SetCVar("nameplateShowEnemyTotems", val)
 				                end,
-				                get = function(info) return self.settings.enemytotem end
+				                get = function(info) return self:GetCVar("nameplateShowEnemyTotems") end
 				            },
 				            enemypets = {
 				                type = "toggle",
 				                name = "Show Enemy Pets",
 				                desc = "",
 				                order = 1,
-				                set = function(info,val) self.settings.enemypets = val
-				                    SetCVar("nameplateShowEnemyPets", val)
+				                set = function(info,val) 
+				                    self:SetCVar("nameplateShowEnemyPets", val)
 				                end,
-				                get = function(info) return self.settings.enemypets end
+				                get = function(info) return self:GetCVar("nameplateShowEnemyPets") end
 				            },
 				            enemyguardian = {
 				                type = "toggle",
 				                name = "Show Enemy Guardians",
 				                desc = "",
 				                order = 1,
-				                set = function(info,val) self.settings.enemyguardian = val
-				                    SetCVar("nameplateShowEnemyGuardians", val)
+				                set = function(info,val) 
+				                    self:SetCVar("nameplateShowEnemyGuardians", val)
 				                end,
-				                get = function(info) return self.settings.enemyguardian end
+				                get = function(info) return self:GetCVar("nameplateShowEnemyGuardians") end
 				            },
 				        },
 				    },
@@ -885,7 +1164,7 @@ function JokPlates:SetupOptions()
 				        descStyle = "inline",
 				        width = "full",
 				        order = 1,
-				        disabled = function(info) return not self.settings.enable end,
+				        
 				        set = function(info,val) self.settings.arenanumber = val
 				        JokPlates:ForceUpdate()
 				        end,
@@ -898,7 +1177,7 @@ function JokPlates:SetupOptions()
 				        descStyle = "inline",
 				        width = "full",
 				        order = 2,
-				        disabled = function(info) return not self.settings.enable end,
+				        
 				        set = function(info,val) self.settings.castInterrupt = val
 				        end,
 				        get = function(info) return self.settings.castInterrupt end
@@ -910,7 +1189,7 @@ function JokPlates:SetupOptions()
 				        descStyle = "inline",
 				        width = "full",
 				        order = 3,
-				        disabled = function(info) return not self.settings.enable end,
+				        
 				        set = function(info,val) self.settings.castTarget = val
 				        end,
 				        get = function(info) return self.settings.castTarget end
@@ -926,9 +1205,7 @@ function JokPlates:SetupOptions()
 			},
 		}
 	}
-
-	LibStub("AceConfig-3.0"):RegisterOptionsTable("JokPlates", self.options)
-	LibStub("AceConfigDialog-3.0"):AddToBlizOptions("JokPlates", "|cffFF7D0AJok|rPlates")
+    LibStub("AceConfig-3.0"):RegisterOptionsTable("JokPlates", self.options)
 end
 
 function JokPlates:OnInitialize()
@@ -936,6 +1213,9 @@ function JokPlates:OnInitialize()
 	self.settings = self.db.profile
 
 	self:SetupOptions()
+
+    LibStub("AceConfigDialog-3.0"):AddToBlizOptions("JokPlates", "|cffFF7D0AJok|rPlates")
+
 	self:Refresh()
 end
 
@@ -948,30 +1228,22 @@ function JokPlates:OnEnable()
     self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
     self:RegisterEvent('UPDATE_MOUSEOVER_UNIT')
     self:RegisterEvent('UNIT_HEALTH_FREQUENT')
+    self:RegisterEvent('UNIT_AURA')
 
     self:SecureHook('CompactUnitFrame_UpdateName')
     self:SecureHook('CompactUnitFrame_UpdateHealthColor')
     self:SecureHook('ClassNameplateManaBar_OnUpdate')
+    self:SecureHook('DefaultCompactNamePlateFrameSetup') 
     self:SecureHook('DefaultCompactNamePlateFrameAnchorInternal')   
-    self:SecureHook(NamePlateDriverFrame, 'SetupClassNameplateBars', 'SetupClassNameplateBar')
-    
-    self:Buffs()
-    self:CC()
 
-    -- Set CVAR
-    SetCVar("nameplateGlobalScale", self.settings.globalScale)
-    SetCVar("nameplateSelectedScale", self.settings.targetScale)
-    SetCVar("nameplateLargerScale", self.settings.importantScale)
-    SetCVar("nameplateOverlapV", self.settings.verticalOverlap)
-    SetCVar("nameplateOverlapH", self.settings.horizontalOverlap)      
-    SetCVar("nameplateMotion", self.settings.overlap)
-    SetCVar("nameplateShowEnemyGuardians", self.settings.enemyguardian)
-    SetCVar("nameplateShowEnemyTotems", self.settings.enemytotem)
-    SetCVar("nameplateShowEnemyPets", self.settings.enemypets)
+    self:SecureHook(NamePlateDriverFrame, 'SetupClassNameplateBars', 'SetupClassNameplateBar')
+    self:SecureHook(_G['NamePlateDriverFrame'], 'UpdateNamePlateOptions', 'NamePlateDriverFrame_UpdateNamePlateOptions')
+    self:SecureHook(_G['ClassNameplateManaBarFrame'], 'OnOptionsUpdated', 'ClassNameplateManaBarFrame_OnOptionsUpdated')
 
     SetCVar("nameplateMinScale", 1)
     SetCVar("nameplateMaxScale", 1)
     SetCVar("nameplateShowDebuffsOnFriendly", 0)
+    SetCVar("nameplateOccludedAlphaMult", 1)
 
     SetCVar("nameplateShowAll", 1)
 end
@@ -979,6 +1251,110 @@ end
 -------------------------------------------------------------------------------
 -- Functions
 -------------------------------------------------------------------------------
+
+function JokPlates:GetCVar(CVar)
+    if GetCVar(CVar) == "1" then 
+        return true
+    elseif GetCVar(CVar) == "0"      then
+        return false
+    end
+end
+
+function JokPlates:SetCVar(CVar, value)
+    if value == true then 
+        SetCVar(CVar, 1)
+    elseif value == false then
+        SetCVar(CVar, 0)
+    end
+end
+
+function JokPlates:CreateText(frame, layer, fontsize, flag, justifyh, shadow)
+    local text = frame:CreateFontString("$parent.CountText", layer)
+    text:SetFont("Fonts\\FRIZQT__.TTF", fontsize, flag)
+    text:SetJustifyH(justifyh)
+    
+    if shadow then
+        text:SetShadowColor(0, 0, 0)
+        text:SetShadowOffset(1, -1)
+    end
+    
+    return text
+end
+
+function JokPlates:PairsByKeys(t)
+    local a = {}
+    for n in pairs(t) do table.insert(a, n) end
+    table.sort(a)
+    local i = 0      -- iterator variable
+    local iter = function ()   -- iterator function
+        i = i + 1
+        if a[i] == nil then return nil
+        else return a[i], t[a[i]]
+        end
+      end
+    return iter
+end
+
+function JokPlates:CreateIcon(parent, tag, index)
+    local button = CreateFrame("Frame", "$parent"..index, parent)
+    button:SetSize(20, 14)    
+    button:EnableMouse(false)
+
+    button.icon = button:CreateTexture("$parent.Icon", "OVERLAY", nil, 3)
+    button.icon:SetTexCoord(0.05, 0.95, 0.1, 0.6)
+    button.icon:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 1,1);
+    button.icon:SetPoint("TOPRIGHT", button, "TOPRIGHT", -1,-1);
+
+    button.overlay = button:CreateTexture("$parent.Overlay", "ARTWORK", nil, 7)
+    button.overlay:SetTexture([[Interface\TargetingFrame\UI-TargetingFrame-Stealable]])
+    button.overlay:SetPoint("TOPLEFT", button, -3, 3)
+    button.overlay:SetPoint("BOTTOMRIGHT", button, 3, -3)
+    button.overlay:SetBlendMode("ADD")
+
+    --Border
+    if not button.Backdrop then
+        local backdrop = {
+            bgFile = "Interface\\AddOns\\JokUI\\media\\textures\\Square_White.tga",
+            edgeFile = "",
+            tile = false,
+            tileSize = 32,
+            edgeSize = 0,
+            insets = {
+                left = 0,
+                right = 0,
+                top = 0,
+                bottom = 0
+            }
+        }
+        local Backdrop = CreateFrame("frame", "$parent.Border", button);
+        button.Backdrop = Backdrop;
+        button.Backdrop:SetBackdrop(backdrop)
+        button.Backdrop:SetAllPoints(button)
+        button.Backdrop:Show();
+    end
+    button.Backdrop:SetBackdropColor(0, 0, 0, 1)
+
+    local regionFrameLevel = button:GetFrameLevel() -- get strata for next bit
+    button.Backdrop:SetFrameLevel(regionFrameLevel-2) -- put the border at the back
+
+    button.cd = CreateFrame("Cooldown", "$parent.Cooldown", button, "CooldownFrameTemplate")
+    button.cd:SetAllPoints(button)
+    button.cd:SetDrawEdge(false)
+    button.cd:SetAlpha(1)
+    button.cd:SetDrawSwipe(true)
+    button.cd:SetReverse(true)
+    
+    if strfind(tag, "aura") then
+        button.count = self:CreateText(button, "OVERLAY", 12, "OUTLINE", "RIGHT")
+        button.count:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 1, -2)
+        button.count:SetTextColor(1, 1, 1)
+    end
+
+    button:Hide()
+    parent.QueueIcon(button, tag)
+    
+    return button
+end
 
 -- Format Time
 function JokPlates:FormatTime(s)
@@ -1027,14 +1403,6 @@ function JokPlates:ForceUpdate()
     for i, frame in ipairs(C_NamePlate.GetNamePlates(issecure())) do
         CompactUnitFrame_UpdateAll(frame.UnitFrame)
     end
-end
-
-function JokPlates:UpdateAllNameplates()
-    for i, namePlate in ipairs(C_NamePlate.GetNamePlates()) do
-        local frame = namePlate.UnitFrame
-        self:UpdateCastbar(frame)
-        self:UpdateName(frame)
-    end 
 end
 
 -- Check for threat.
@@ -1088,21 +1456,6 @@ function JokPlates:SetPlayerNameByClass(unit, text)
     return text
 end
 
-function JokPlates:GetPlayerRGBColor(unit)
-    local _, class = UnitClass (unit)
-    if (class) then
-        c = CUSTOM_CLASS_COLORS and CUSTOM_CLASS_COLORS[class] or RAID_CLASS_COLORS[class]
-    end
-    return c.r, c.g, c.g
-end
-
--- Is Showing Resource Frame?
-function JokPlates:IsShowingResourcesOnTarget()
-    if GetCVar("nameplateResourceOnTarget") == "1" and GetCVar("nameplateShowSelf") == "1" and NamePlateTargetResourceFrame:IsShown() then
-        return true
-    end
-end
-
 -- Group Members Snippet 
 function JokPlates:GroupMembers(reversed, forceParty)
     local unit  = (not forceParty and IsInRaid()) and 'raid' or 'party'
@@ -1126,6 +1479,7 @@ function JokPlates:UpdateCastbarTimer(frame)
         if ( frame.castBar.casting ) then
             local current = frame.castBar.maxValue - frame.castBar.value
             if ( current > 0 ) then
+                print("test")
                 frame.castBar.CastTime:SetText(JokPlates:FormatTime(current))
             end
         else
@@ -1143,24 +1497,13 @@ function JokPlates:GetNpcID(unit)
     return tonumber(npcID)
 end
 
--- Is Unit from table
-function JokPlates:IsUnit(table, unit)
-	local npcID = self:GetNpcID(unit)
-
-	for k, npcs in pairs(table) do
-		if k == npcID then
-			return true
-		end
-    end
-end
-
 -- Return r,g,b from npcid/table
-function JokPlates:DangerousColor(unit)
+function JokPlates:DangerousColor(frame)
 	local r, g, b
 	local dangerousColor = {r = 1.0, g = 0.7, b = 0.0}
 	local otherColor = {r = 0.0, g = 0.7, b = 1.0}
 
-	local npcID = self:GetNpcID(unit)
+	local npcID = frame.npcID
 
 	for k, npcs in pairs(moblist) do
 		local tag = npcs["tag"]
@@ -1200,6 +1543,9 @@ function JokPlates:UpdateHealth(frame, unit)
     local maxHealth = UnitHealthMax(unit)
     local perc = math.floor(100 * (health/maxHealth))
 
+    frame.healthBar.LeftText:Show()
+    frame.healthBar.RightText:Show()
+
     if ( health >= 1 ) then
         frame.healthBar.LeftText:SetText(perc.."%")
         frame.healthBar.RightText:SetText(self:FormatValue(health))
@@ -1207,6 +1553,26 @@ function JokPlates:UpdateHealth(frame, unit)
         frame.healthBar.LeftText:SetText("")
         frame.healthBar.RightText:SetText("")
     end
+end
+
+function JokPlates:GlowNameplate(frame, show)
+    if show then
+        if glowType == "AutoCast" then
+            LCG.AutoCastGlow_Start(frame.healthBar, nil, 8, 0.3, 1, 1, 1)
+        elseif glowType == "Pixel" then
+            LCG.PixelGlow_Start(frame.healthBar, nil, 10, 0.3, nil, 2, 2, 2, true)
+        elseif glowType == "Standard" then
+            LCG.ButtonGlow_Start(frame.healthBar)
+        end
+    else
+        if glowType == "AutoCast" then
+            LCG.AutoCastGlow_Stop(frame.healthBar)
+        elseif glowType == "Pixel" then
+            LCG.PixelGlow_Stop(frame.healthBar)    
+        elseif glowType == "Standard" then
+            LCG.ButtonGlow_Stop(frame.healthBar)
+        end
+    end 
 end
 
 -- UpdateBuffs Hook
@@ -1240,7 +1606,7 @@ function JokPlates_UpdateBuffs(self, unit, filter, showAll)
 	-- Some buffs may be filtered out, use this to create the buff frames.
 	local buffIndex = 1;
 	for i = 1, BUFF_MAX_DISPLAY do
-		local name, texture, count, debuffType, duration, expirationTime, caster, canStealOrPurge, nameplateShowPersonal, spellId, _, _, _, nameplateShowAll = UnitAura(unit, i, filter);
+		local name, texture, count, debuffType, duration, expirationTime, caster, canStealOrPurge, nameplateShowPersonal, spellId, _, isBossDebuff, _, nameplateShowAll = UnitAura(unit, i, filter);
 
 		-----------------------------------------------------------
 		local flag = false
@@ -1253,15 +1619,25 @@ function JokPlates_UpdateBuffs(self, unit, filter, showAll)
 			flag = true 
 		end
 
+        if isBossDebuff then
+            flag = true
+        end
+
 		-- Personal Buffs
 		if JokPlates.db.profile.spells.buffs[spellId] and UnitIsUnit(unit, "player") then 
 			flag = true 
-		end 
+		end
 
 		-- Personal Whitelist
 		if JokPlates.db.profile.spells.personal[spellId] and UnitIsUnit(unit, "player") then 
 			flag = true 
-		end 
+		end
+
+        if JokPlates.db.profile.spells.custom[spellId] and UnitIsUnit(unit, "player") then 
+            if JokPlates.db.profile.spells.custom[spellId].personal then
+                flag = true 
+            end
+        end  
 
 		-----------------------------------------------------------
 		if (flag) then
@@ -1297,6 +1673,12 @@ function JokPlates_UpdateBuffs(self, unit, filter, showAll)
 		end
 	end
 
+    if buffIndex == 1 then
+        self:Hide()
+    else
+        self:Show()
+    end
+
     self:Layout();
 end
 
@@ -1316,17 +1698,46 @@ function JokPlates:UpdateCastbar(frame)
         frame.castBar.CastTime:Show()
     end
 
+    frame.castBar.update = 0.1
+
     -- Update Castbar.
 
-    frame.castBar:SetScript("OnValueChanged", function(self, value)
-        if ( frame.unit ) then
-            if ( frame.castBar.casting ) then
-                notInterruptible = select(8, UnitCastingInfo(frame.displayedUnit))
-            else
-                notInterruptible = select(7, UnitChannelInfo(frame.displayedUnit))
-            end
-        end
+    local lastUpdate = 0
 
+    frame.castBar:HookScript("OnUpdate", function(self, elapsed)
+        lastUpdate = lastUpdate + elapsed
+        if lastUpdate >= frame.castBar.update then
+            lastUpdate = 0
+
+            if ( frame.unit ) then
+                if ( frame.castBar.casting ) then
+                    notInterruptible = select(8, UnitCastingInfo(frame.displayedUnit))
+                else
+                    notInterruptible = select(7, UnitChannelInfo(frame.displayedUnit))
+                end
+            end
+
+            local name = UnitCastingInfo(frame.displayedUnit)
+            if not name then                    
+                name = UnitChannelInfo(frame.displayedUnit)
+            end 
+
+            if name and IsInGroup() and JokPlates.db.profile.castTarget then
+                frame.castBar.Text:SetText(name)
+                local targetUnit = frame.displayedUnit.."-target"
+                for u in JokPlates:GroupMembers() do
+                    if UnitIsUnit(targetUnit, u) then
+                        local targetName = UnitName(targetUnit)
+                        frame.castBar.Text:SetText(name .. JokPlates:SetTextColorByClass(targetName, targetName))
+                    end
+                end 
+            end
+
+            JokPlates:UpdateCastbarTimer(frame)
+        end
+    end)
+
+    frame:HookScript("OnShow", function(self)
         if not frame.castBar.Icon:IsShown() then
             frame.castBar.Icon:Show()
             if ( frame.castBar.casting ) then
@@ -1336,23 +1747,7 @@ function JokPlates:UpdateCastbar(frame)
             end
         end
 
-        local name = UnitCastingInfo(frame.displayedUnit)
-        if not name then                    
-            name = UnitChannelInfo(frame.displayedUnit)
-        end 
-
-        if name and IsInGroup() and JokPlates.db.profile.castTarget then
-        	frame.castBar.Text:SetText(name)
-	        local targetUnit = frame.displayedUnit.."-target"
-	        for u in JokPlates:GroupMembers() do
-	            if UnitIsUnit(targetUnit, u) then
-	                local targetName = UnitName(targetUnit)
-	                frame.castBar.Text:SetText(name .. JokPlates:SetTextColorByClass(targetName, targetName))
-	            end
-	        end	
-	    end
-
-        JokPlates:UpdateCastbarTimer(frame)
+        lastUpdate = 0
     end)
 
     frame.castBar.BorderShield:SetTexture(nil)
@@ -1360,7 +1755,6 @@ end
 
 function JokPlates:ThreatColor(frame)
     local r, g, b
-    local npcID = self:GetNpcID(frame.displayedUnit)
 
     if ( not UnitIsConnected(frame.unit) ) then
         r, g, b = 0.5, 0.5, 0.5
@@ -1383,8 +1777,8 @@ function JokPlates:ThreatColor(frame)
                 r, g, b = classColor.r, classColor.g, classColor.b
             elseif ( CompactUnitFrame_IsTapDenied(frame) ) then
                 r, g, b = 0.5, 0.5, 0.5
-            elseif ( self:IsUnit(moblist, frame.displayedUnit) ) then
-				r, g, b = JokPlates:DangerousColor(frame.displayedUnit)
+            elseif ( moblist[frame.npcID] ) then
+				r, g, b = JokPlates:DangerousColor(frame)
             elseif ( frame.optionTable.colorHealthBySelection ) then
                 if ( frame.optionTable.considerSelectionInCombatAsHostile and self:IsOnThreatListWithPlayer(frame.displayedUnit) ) then    
                     local target = frame.displayedUnit.."target"
@@ -1424,13 +1818,217 @@ function JokPlates:ThreatColor(frame)
     end
 end
 
+-----------------------------------------
+
+function JokPlates:ApplyCC(frame)
+    local spellId, icon, start, expire
+
+    -- Check if an aura was found
+    if frame.aura.spellId then
+        spellId, icon, start, expire = frame.aura.spellId, frame.aura.icon, frame.aura.start, frame.aura.expire
+    end
+
+    -- Check if there's an interrupt lockout
+    if frame.interrupt.spellId then
+        -- Make sure the lockout is still active
+        if frame.interrupt.expire < GetTime() then
+            frame.interrupt.spellId = nil
+        -- Select the greatest priority (aura or interrupt)
+        elseif spellId and priorityList[frame.interrupt.spellId] < priorityList[spellId] or not spellId then
+            spellId, icon, start, expire = frame.interrupt.spellId, frame.interrupt.icon, frame.interrupt.start, frame.interrupt.expire
+        end
+    end
+
+    -- Set up the icon & cooldown
+    if spellId then
+        CooldownFrame_Set(frame.cd, start, expire - start, 1, true)
+        if spellId ~= frame.activeId then
+            frame.activeId = spellId
+            frame.icon:SetTexture(icon)
+        end
+    -- Remove cooldown & reset icon back to class icon
+    elseif frame.activeId then
+        frame.activeId = nil
+        frame.icon:SetTexture(nil)
+        CooldownFrame_Set(frame.cd, 0, 0, 0, true)
+    end
+end
+
+function JokPlates:UpdateCC(frame)
+    if UnitIsUnit(frame.displayedUnit, "player") then return end
+
+    local priorityAura = {
+        icon = nil,
+        spellId = nil,
+        duration = nil,
+        expires = nil,
+    }
+
+    local duration, icon, expires, spellId, _
+
+    for i = 1, BUFF_MAX_DISPLAY do
+        _, icon, _, _, duration, expires, _, _, _, spellId = UnitAura(frame.displayedUnit, i, "HARMFUL")
+        if not spellId then break end
+
+        if priorityList[spellId] then
+            -- Select the greatest priority aura
+            if not priorityAura.spellId or priorityList[spellId] < priorityList[priorityAura.spellId] then
+                priorityAura.icon = icon
+                priorityAura.spellId = spellId
+                priorityAura.duration = duration
+                priorityAura.expires = expires
+            end
+        end
+    end
+
+    if priorityAura.spellId then
+        frame.cc.aura.spellId = priorityAura.spellId
+        frame.cc.aura.icon = priorityAura.icon
+        frame.cc.aura.start = priorityAura.expires - priorityAura.duration
+        frame.cc.aura.expire = priorityAura.expires
+    else
+        frame.cc.aura.spellId = nil
+    end
+
+    self:ApplyCC(frame.cc)
+end
+
+function JokPlates:UpdateInterrupts()
+    local _, event,_,_,_,_,_, destGUID, _,_,_, spellId = CombatLogGetCurrentEventInfo()
+
+    if not interrupts[spellId] then return end
+
+    if event ~= "SPELL_INTERRUPT" and event ~= "SPELL_CAST_SUCCESS" then return end
+
+    if event == "SPELL_INTERRUPT" then
+        local _, _, icon = GetSpellInfo(spellId)
+        local start = GetTime()
+        local duration = interrupts[spellId]
+
+        for _, namePlate in pairs(C_NamePlate.GetNamePlates(issecure())) do
+            local frame = namePlate.UnitFrame
+            local unit = frame.displayedUnit
+            
+            if not UnitIsUnit(frame.displayedUnit, "player") and UnitIsPlayer(frame.displayedUnit) then 
+                if UnitGUID(unit) == destGUID then
+                    frame.cc.interrupt.spellId = spellId
+                    frame.cc.interrupt.icon = icon
+                    frame.cc.interrupt.start = start
+                    frame.cc.interrupt.expire = start + duration
+
+                    ApplyCC(frame.cc)
+
+                    C_Timer.After(duration, function()
+                        UpdateCC(frame)
+                    end)
+                end
+            end
+        end
+    end
+end
+
+function JokPlates:UpdateIcon(button, unit, index, filter)
+    local name, icon, count, debuffType, duration, expire, _, canStealOrPurge, _, spellID, _, _, _, nameplateShowAll = UnitAura(unit, index, filter)
+
+    if button.spellID ~= spellID or button.expire ~= expire or button.count ~= count or button.duration ~= duration then
+        CooldownFrame_Set(button.cd, expire - duration, duration, true, true)
+    end
+
+    button.icon:SetTexture(icon)
+    button.expire = expire
+    button.duration = duration
+    button.spellID = spellID
+    button.canStealOrPurge = canStealOrPurge
+    button.nameplateShowAll = nameplateShowAll
+
+    button:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_LEFT");
+        GameTooltip:SetUnitAura(unit, index, filter)
+    end)
+
+    button:SetScript("OnLeave", function(self)
+        GameTooltip:ClearLines()
+        GameTooltip:Hide()
+    end)
+
+    if canStealOrPurge then
+        button.overlay:SetVertexColor(1, 1, 1)
+        button.overlay:Show()
+    else
+        button.overlay:Hide()
+    end
+
+    if count and count > 1 then
+        button.count:SetText(count)
+    else
+        button.count:SetText("")
+    end
+
+    --
+    button:Show()
+end
+
+function JokPlates:UpdateBuffs(frame)
+    local filter
+
+    if UnitIsUnit("player", frame.displayedUnit) then
+        filter = "HARMFUL";
+    else
+        filter = "HELPFUL";
+    end
+
+    -- Buffs
+    local buffIndex = 1
+    for i = 1, BUFF_MAX_DISPLAY do       
+        local name, _, _, _, duration, expire, caster, canStealOrPurge, nameplateShowPersonal, spellID, _, isBossDebuff, castByPlayer, nameplateShowAll = UnitAura(frame.displayedUnit, i, filter)
+
+        local flag = false
+
+        if isBossDebuff then
+            flag = true
+        end
+
+        if JokPlates.db.profile.spells.custom[spellID] and UnitIsUnit("player", frame.displayedUnit) then
+            if JokPlates.db.profile.spells.custom[spellID].personal then
+                flag = true
+            end
+        end
+
+        if (JokPlates.db.profile.spells.buffs.purgeable and canStealOrPurge) then
+            flag = true                 
+        end
+
+        if JokPlates.db.profile.spells.buffs[spellID] then
+            flag = true
+        end
+        
+        if JokPlates.db.profile.spells.custom[spellID] then
+            if JokPlates.db.profile.spells.custom[spellID].all then
+                flag = true
+            end
+        end
+
+        if flag then
+            if not frame.BuffFrame2.buffList[buffIndex] then
+                frame.BuffFrame2.buffList[buffIndex] = self:CreateIcon(frame.BuffFrame2, "aura"..buffIndex, buffIndex)
+            end
+            self:UpdateIcon(frame.BuffFrame2.buffList[buffIndex], frame.displayedUnit, i, filter)
+            buffIndex = buffIndex + 1
+        end
+    end
+
+    for i = buffIndex, #frame.BuffFrame2.buffList do 
+        frame.BuffFrame2.buffList[i]:Hide() 
+    end
+end
+
 -------------------------------------------------------------------------------
 -- SKIN
 -------------------------------------------------------------------------------
 
 function JokPlates:PLAYER_ENTERING_WORLD()
 
-    DefaultCompactNamePlatePlayerFrameSetUpOptions.healthBarHeight = JokPlates.db.profile.personalManaHeight
+   -- DefaultCompactNamePlatePlayerFrameSetUpOptions.healthBarHeight = JokPlates.db.profile.personalManaHeight
 
     -- Remove Larger Nameplates Function (thx Plater)
     InterfaceOptionsNamesPanelUnitNameplatesMakeLarger:Disable()
@@ -1448,8 +2046,6 @@ function JokPlates:PLAYER_ENTERING_WORLD()
     C_NamePlate.SetNamePlateSelfClickThrough(true)
 
     -- Class Nameplate Mana Bar
-    ClassNameplateManaBarFrame:SetSize(self.settings.personalWidth-24, self.settings.personalManaHeight)
-    ClassNameplateManaBarFrame:SetHeight(self.settings.personalManaHeight)
     ClassNameplateManaBarFrame:SetStatusBarTexture(statusBar)
 
     if ( not ClassNameplateManaBarFrame.text ) then
@@ -1463,6 +2059,12 @@ function JokPlates:NAME_PLATE_CREATED(_, namePlate)
 	local frame = namePlate.UnitFrame
     frame.isNameplate = true
 
+    if ( frame:IsForbidden() ) then return end
+
+    frame.npcID = nil
+    frame.unit = nil
+    frame.displayedUnit = nil
+
     frame.healthBar:SetStatusBarTexture(statusBar)
     frame.selectionHighlight:SetTexture(statusBar)
     frame.castBar:SetStatusBarTexture(statusBar)
@@ -1471,15 +2073,21 @@ function JokPlates:NAME_PLATE_CREATED(_, namePlate)
     frame.RaidTargetFrame:SetPoint("RIGHT", frame.healthBar, "LEFT", -7, 0)
 
     self:UpdateCastbar(frame)
-
     self:AddHealthbarText(namePlate)
+
+    -- TOP ICON
+
+    frame.icon = frame:CreateTexture(nil, "OVERLAY")
+    frame.icon:SetSize(30, 30)
+    frame.icon:SetPoint("BOTTOM", frame.name, "TOP", 0, 2)
 
 	-- Hook UpdateBuffs
 	frame.BuffFrame.UpdateBuffs = JokPlates_UpdateBuffs
 
 	-- Hook UpdateAnchor
 	function frame.BuffFrame:UpdateAnchor()
-		if not frame.displayedUnit then return end   		
+		if not frame.displayedUnit then return end  
+
 		if UnitIsUnit(frame.displayedUnit, "player") then --player plate
             --self:ClearAllPoints()
 			self:SetPoint("BOTTOM", self:GetParent().healthBar, "TOP", 0, 3);
@@ -1490,7 +2098,75 @@ function JokPlates:NAME_PLATE_CREATED(_, namePlate)
         elseif frame.healthBar:IsShown() then
             self:SetPoint("BOTTOM", self:GetParent().healthBar, "TOP", 0, 4);
 		end
-	end	
+	end
+
+    -- CC FRAME
+
+    frame.cc = CreateFrame("Frame", "$parent.CC", frame)
+    frame.cc:SetPoint("LEFT", frame.healthBar, "RIGHT", 3, 2)
+    
+    frame.cc:SetWidth(24)
+    frame.cc:SetHeight(24)
+    frame.cc:SetFrameLevel(frame:GetFrameLevel())
+    
+    frame.cc.icon = frame.cc:CreateTexture(nil, "OVERLAY", nil, 3)
+    frame.cc.icon:SetAllPoints(frame.cc)
+
+    frame.cc.cd = CreateFrame("Cooldown", nil, frame.cc, "CooldownFrameTemplate")
+    frame.cc.cd:SetAllPoints(frame.cc)
+    frame.cc.cd:SetDrawEdge(false)
+    frame.cc.cd:SetAlpha(1)
+    frame.cc.cd:SetDrawSwipe(true)
+    frame.cc.cd:SetReverse(true)
+
+    frame.cc.activeId = nil
+    frame.cc.aura = { spellId = nil, icon = nil, start = nil, expire = nil }
+    frame.cc.interrupt = { spellId = nil, icon = nil, start = nil, expire = nil }
+
+    -- BUFF FRAME
+
+    frame.BuffFrame2 = CreateFrame("Frame", "$parent.DebuffFrame", frame)
+
+    frame.BuffFrame2:SetPoint("BOTTOMLEFT", frame.BuffFrame, "TOPLEFT", 0, 3)
+    
+    frame.BuffFrame2:SetWidth(130)
+    frame.BuffFrame2:SetHeight(14)
+    frame.BuffFrame2:SetFrameLevel(namePlate:GetFrameLevel())
+
+    frame.BuffFrame2.buffList = {}        
+    frame.BuffFrame2.buffActive = {}
+
+    frame.BuffFrame2.LineUpIcons = function()
+        local lastframe
+        for v, f in self:PairsByKeys(frame.BuffFrame2.buffActive) do
+            f:ClearAllPoints()
+            if not lastframe then
+                local num = 0
+                for k, j in pairs(frame.BuffFrame2.buffActive) do
+                    num = num + 1
+                end
+                f:SetPoint("LEFT", frame.BuffFrame2, "LEFT", 0,0)
+            else
+                f:SetPoint("LEFT", lastframe, "RIGHT", 4, 0)
+            end
+
+            lastframe = f
+        end
+    end
+    
+    frame.BuffFrame2.QueueIcon = function(button, tag)
+        button.v = tag
+        
+        button:SetScript("OnShow", function()
+            frame.BuffFrame2.buffActive[button.v] = button
+            frame.BuffFrame2.LineUpIcons()
+        end)
+        
+        button:SetScript("OnHide", function()
+            frame.BuffFrame2.buffActive[button.v] = nil
+            frame.BuffFrame2.LineUpIcons()
+        end)
+    end
 end
 
 function JokPlates:NAME_PLATE_UNIT_ADDED(_, unit)
@@ -1499,46 +2175,143 @@ function JokPlates:NAME_PLATE_UNIT_ADDED(_, unit)
 
     if ( frame:IsForbidden() ) then return end
 
-    if self:IsUnit(totemlist, frame.displayedUnit) then
-        if not frame.icon then
-            frame.icon = frame:CreateTexture(nil, "OVERLAY")
-            frame.icon:SetSize(30, 30)
-            frame.icon:SetPoint("BOTTOM", frame.name, "TOP", 0, 2)
-        end
-
-        local npcID = self:GetNpcID(frame.displayedUnit)
-
-        for k, npcs in pairs(totemlist) do
-            local icon = npcs["icon"]
-
-            if k == npcID then
-                frame.icon:SetTexture(npcs["icon"])
-            end
-        end
-    else
-        if frame.icon then
-            frame.icon:SetTexture(nil)
-        end
-    end
+    frame.unit = unit
+    frame.displayedUnit = unit -- For vehicles
+    frame.unitGUID = UnitGUID(unit)
+    frame.npcID = self:GetNpcID(unit)    
 
     if UnitIsUnit(frame.displayedUnit, "player") then 
         frame.healthBar:SetHeight(self.settings.personalHealthHeight)
         self:UpdateHealth(frame, "player")
-        return 
+        return
     end
+
+    if glowMob[frame.npcID] then
+        self:GlowNameplate(frame, true)
+        frame.isGlowing = true
+    end
+
+    if totemlist[frame.npcID] then
+        for k, npcs in pairs(totemlist) do
+            local icon = npcs["icon"]
+            if k == frame.npcID then
+                frame.icon:SetTexture(npcs["icon"])
+            end
+        end
+        frame.icon.active = true
+    end
+
+    if UnitIsUnit("player", frame.displayedUnit) then
+        frame.BuffFrame2:SetScale(1.2)
+    else
+        frame.BuffFrame2:SetScale(JokPlates.db.profile.buffFrameScale)
+    end
+
+    self:ThreatColor(frame)
+    self:UpdateBuffs(frame)
+    self:UpdateCC(frame)
 end
 
 function JokPlates:NAME_PLATE_UNIT_REMOVED(_, unit)
 	local namePlate = C_NamePlate.GetNamePlateForUnit(unit)
 	local frame = namePlate.UnitFrame
+
+    if frame.icon.active then
+        frame.icon:SetTexture(nil)
+        frame.icon.active = false
+    end
+
+    if frame.isGlowing then
+        self:GlowNameplate(frame, false)
+        frame.isGlowing = false
+    end
+
+    CastingBarFrame_SetUnit(frame.castBar, nil, false, true)
+end
+
+function JokPlates:UNIT_AURA(_, unit)
+    if not unit:find("nameplate") then return end
+    local namePlate = C_NamePlate.GetNamePlateForUnit(unit)
+    local frame = namePlate.UnitFrame
+
+    self:UpdateCC(frame)
+    self:UpdateBuffs(frame)
+end
+
+function JokPlates:UNIT_HEALTH_FREQUENT(_, unit)
+    if not UnitIsUnit(unit, "player") then return end
+
+    local namePlate = C_NamePlate.GetNamePlateForUnit('player')
+    if not namePlate then return end
+    local frame = namePlate.UnitFrame
+
+    if ( frame:IsForbidden() ) then return end
+
+    self:UpdateHealth(frame, unit)
+end
+
+function JokPlates:COMBAT_LOG_EVENT_UNFILTERED()
+    self:UpdateInterrupts()
+
+    if IsInGroup() then
+        local time, event, hidding, sourceGUID, sourceName, sourceFlag, sourceFlag2, targetGUID, targetName, targetFlag, targetFlag2, spellID, spellName, spellType, amount, overKill, school, resisted, blocked, absorbed, isCritical = CombatLogGetCurrentEventInfo()
+        if event == "SPELL_INTERRUPT" and self.settings.castInterrupt then
+            for _, namePlate in ipairs (C_NamePlate.GetNamePlates()) do
+                local token = namePlate.namePlateUnitToken
+                if (namePlate.UnitFrame.castBar:IsShown()) then
+                    if (namePlate.UnitFrame.castBar.Text:GetText() == INTERRUPTED) then
+                        if (UnitGUID(token) == targetGUID) then
+                            --Attribute Pet Spell's to its owner
+                            local type = strsplit("-",sourceGUID)
+                            if type == "Pet" then
+                                for unit in self:GroupMembers() do
+                                    if UnitGUID(unit.."pet") == sourceGUID then
+                                        sourceGUID = UnitGUID(unit)                        
+                                        sourceName = UnitName(unit)
+                                        sourceName = gsub(sourceName, "%-[^|]+", "")
+                                        break
+                                    end
+                                end
+                            end   
+                            namePlate.UnitFrame.castBar.Text:SetText (INTERRUPTED .. self:SetTextColorByClass(sourceName, sourceName))
+                        end
+                    end
+                end
+            end
+        end       
+    end
+end
+
+function JokPlates:UPDATE_MOUSEOVER_UNIT()
+    local namePlate = C_NamePlate.GetNamePlateForUnit('mouseover')
+    if not namePlate then return end
+    local frame = namePlate.UnitFrame
+
+    if ( frame:IsForbidden() ) then return end
+
+    if UnitIsUnit(frame.displayedUnit, "target") or UnitIsUnit(frame.displayedUnit, "player") then return end
+
+    local function SetBorderColor(frame, r, g, b, a)
+        frame.healthBar.border:SetVertexColor(r, g, b, a);
+    end
+
+    frame.selectionHighlight:Show()
+    SetBorderColor(frame, frame.optionTable.selectedBorderColor:GetRGBA());
+
+    frame:SetScript('OnUpdate', function(frame)
+        if not UnitExists('mouseover') or not UnitIsUnit('mouseover', frame.displayedUnit) then   
+            if not UnitIsUnit(frame.displayedUnit, "target") then
+                frame.selectionHighlight:Hide()
+                SetBorderColor(frame, frame.optionTable.defaultBorderColor:GetRGBA());
+            end
+            frame:SetScript('OnUpdate',nil)
+        end
+    end)
 end
 
 function JokPlates:CompactUnitFrame_UpdateName(frame)
     if ( frame:IsForbidden() ) then return end
     if ( not frame.isNameplate ) then return end
-
-    -- Abbreviate Long Names. 
-    frame.name:SetText(self:Abbrev(frame.name:GetText(), 24))
 
     -- Player Name
     if ( UnitIsPlayer(frame.displayedUnit) and not UnitIsUnit(frame.displayedUnit, "player") ) then
@@ -1577,794 +2350,64 @@ function JokPlates:SetupClassNameplateBar(self, OnTarget, Bar)
     end
 end
 
-function JokPlates:ClassNameplateManaBar_OnUpdate(self)
-    local currValue = UnitPower("player", self.powerType);
-    local predictedValue = currValue
+function JokPlates:NamePlateDriverFrame_UpdateNamePlateOptions()
+    ClassNameplateManaBarFrame:SetSize(JokPlates.db.profile.personalWidth, JokPlates.db.profile.personalManaHeight)
+end
 
+function JokPlates:ClassNameplateManaBar_OnUpdate(self)
     local castingSpellID = select(9, UnitCastingInfo('player'))
+
+    if not castingSpellID then 
+        if ( self.currValue ~= tonumber(self.text:GetText()) ) then
+            self.text:SetText(JokPlates:FormatValue(self.currValue))
+        end
+        return 
+    end
+
+    local predictedValue = self.currValue
 
     if PowerPrediction[self.powerType] then
         for spellID, spell in pairs(PowerPrediction[self.powerType]) do
             if castingSpellID == spellID then
-                predictedValue = currValue + spell.power
+                predictedValue = self.currValue + spell.power
             end
         end
     end
 
-    if ( currValue ~= predictedValue and castingSpellID ) then
-        self.forceUpdate = nil;
-        
-        self.FeedbackFrame:StartFeedbackAnim(currValue or 0, predictedValue);
-        if ( self.FullPowerFrame.active ) then
-            self.FullPowerFrame:StartAnimIfFull(self.currValue or 0, currValue);
-        end
-        self.currValue = currValue;
-    else
-        self.FeedbackFrame.GainGlowTexture:Hide()
-    end
-
-    self.text:SetText(JokPlates:FormatValue(predictedValue))
+    if ( self.currValue ~= predictedValue ) then
+        self.FeedbackFrame:StartFeedbackAnim(self.currValue or 0, predictedValue);
+        self.text:SetText(JokPlates:FormatValue(predictedValue))
+    end 
 end
 
-function JokPlates:UNIT_HEALTH_FREQUENT(_, unit)
-    if not UnitIsUnit(unit, "player") then return end
+function JokPlates:ClassNameplateManaBarFrame_OnOptionsUpdated()
+    ClassNameplateManaBarFrame:SetSize(JokPlates.db.profile.personalWidth, JokPlates.db.profile.personalManaHeight)
+end
 
-    local namePlate = C_NamePlate.GetNamePlateForUnit('player')
-    if not namePlate then return end
-    local frame = namePlate.UnitFrame
+function JokPlates:DefaultCompactNamePlateFrameSetup(frame, options)
+    if ( frame:IsForbidden() ) then return end
+    if ( not frame.isNameplate ) then return end
 
-    self:UpdateHealth(frame, unit)
+    frame.castBar.Text:SetFont("Fonts\FRIZQT__.TTF", 8)
+    frame.castBar.Text:SetShadowOffset(0.5, -0.5)
 end
 
 function JokPlates:DefaultCompactNamePlateFrameAnchorInternal(frame, setupOptions)
     if ( frame:IsForbidden() ) then return end
     if ( not frame.isNameplate ) then return end
 
-    frame.healthBar:SetHeight(JokPlates.db.profile.healthHeight)
-end
-
--- Mouseover Highlight
-function JokPlates:UPDATE_MOUSEOVER_UNIT()
-    local namePlate = C_NamePlate.GetNamePlateForUnit('mouseover')
-    if not namePlate then return end
-	local frame = namePlate.UnitFrame
-
-    if UnitIsUnit(frame.displayedUnit, "target") or UnitIsUnit(frame.displayedUnit, "player") then return end
-
-    local function SetBorderColor(frame, r, g, b, a)
-        frame.healthBar.border:SetVertexColor(r, g, b, a);
+    if UnitIsPlayer(frame.unit) and not UnitCanAttack("player", frame.unit) and not UnitIsUnit("player", frame.unit) then
+        frame.healthBar:SetHeight(5)
+        frame.castBar:SetHeight(7)
+    else
+        frame.healthBar:SetHeight(JokPlates.db.profile.healthHeight)
+        frame.castBar:SetHeight(9)
     end
 
-    frame.selectionHighlight:Show()
-    SetBorderColor(frame, frame.optionTable.selectedBorderColor:GetRGBA());
-
-    frame:SetScript('OnUpdate', function(frame)
-        if not UnitExists('mouseover') or not UnitIsUnit('mouseover', frame.displayedUnit) then   
-            if not UnitIsUnit(frame.displayedUnit, "target") then
-                frame.selectionHighlight:Hide()
-                SetBorderColor(frame, frame.optionTable.defaultBorderColor:GetRGBA());
-            end
-            frame:SetScript('OnUpdate',nil)
-        end
-    end)
-end
-
--- Check Spell Interrupt
-function JokPlates:COMBAT_LOG_EVENT_UNFILTERED()
-    if IsInGroup() then
-        local time, event, hidding, sourceGUID, sourceName, sourceFlag, sourceFlag2, targetGUID, targetName, targetFlag, targetFlag2, spellID, spellName, spellType, amount, overKill, school, resisted, blocked, absorbed, isCritical = CombatLogGetCurrentEventInfo()
-        if event == "SPELL_INTERRUPT" and self.settings.castInterrupt then
-            for _, namePlate in ipairs (C_NamePlate.GetNamePlates()) do
-                local token = namePlate.namePlateUnitToken
-                if (namePlate.UnitFrame.castBar:IsShown()) then
-                    if (namePlate.UnitFrame.castBar.Text:GetText() == INTERRUPTED) then
-                        if (UnitGUID(token) == targetGUID) then
-                            namePlate.UnitFrame.castBar.Text:SetText (INTERRUPTED .. self:SetTextColorByClass(sourceName, sourceName))
-                        end
-                    end
-                end
-            end
-        end       
-    end
-end
-
--- Buffs
-function JokPlates:Buffs()
-
-    local Jok_PlateHolder = {}
-
-    local function CreateText(frame, layer, fontsize, flag, justifyh, shadow)
-        local text = frame:CreateFontString("$parent.CountText", layer)
-        text:SetFont("Fonts\\FRIZQT__.TTF", fontsize, flag)
-        text:SetJustifyH(justifyh)
-        
-        if shadow then
-            text:SetShadowColor(0, 0, 0)
-            text:SetShadowOffset(1, -1)
-        end
-        
-        return text
-    end
-
-    local function PairsByKeys(t)
-        local a = {}
-        for n in pairs(t) do table.insert(a, n) end
-        table.sort(a)
-        local i = 0      -- iterator variable
-        local iter = function ()   -- iterator function
-            i = i + 1
-            if a[i] == nil then return nil
-            else return a[i], t[a[i]]
-            end
-          end
-        return iter
-    end
-
-    ----------------------------------------------------------
-    ---------------[[    Nameplate Icons    ]]----------------
-    ----------------------------------------------------------
-
-    local function CreateIcon(parent, tag, index)
-        local button = CreateFrame("Frame", "$parent"..index, parent)
-        button:SetSize(20, 14)    
-        button:EnableMouse(false)
-
-        button.icon = button:CreateTexture("$parent.Icon", "OVERLAY", nil, 3)
-        button.icon:SetTexCoord(0.05, 0.95, 0.1, 0.6)
-        button.icon:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 1,1);
-        button.icon:SetPoint("TOPRIGHT", button, "TOPRIGHT", -1,-1);
-
-        button.overlay = button:CreateTexture("$parent.Overlay", "ARTWORK", nil, 7)
-        button.overlay:SetTexture([[Interface\TargetingFrame\UI-TargetingFrame-Stealable]])
-        button.overlay:SetPoint("TOPLEFT", button, -3, 3)
-        button.overlay:SetPoint("BOTTOMRIGHT", button, 3, -3)
-        button.overlay:SetBlendMode("ADD")
-
-        --Border
-        if not button.Backdrop then
-            local backdrop = {
-                bgFile = "Interface\\AddOns\\JokUI\\media\\textures\\Square_White.tga",
-                edgeFile = "",
-                tile = false,
-                tileSize = 32,
-                edgeSize = 0,
-                insets = {
-                    left = 0,
-                    right = 0,
-                    top = 0,
-                    bottom = 0
-                }
-            }
-            local Backdrop = CreateFrame("frame", "$parent.Border", button);
-            button.Backdrop = Backdrop;
-            button.Backdrop:SetBackdrop(backdrop)
-            button.Backdrop:SetAllPoints(button)
-            button.Backdrop:Show();
-        end
-        button.Backdrop:SetBackdropColor(0, 0, 0, 1)
-
-        local regionFrameLevel = button:GetFrameLevel() -- get strata for next bit
-        button.Backdrop:SetFrameLevel(regionFrameLevel-2) -- put the border at the back
-
-        button.cd = CreateFrame("Cooldown", "$parent.Cooldown", button, "CooldownFrameTemplate")
-        button.cd:SetAllPoints(button)
-        button.cd:SetDrawEdge(false)
-        button.cd:SetAlpha(1)
-        button.cd:SetDrawSwipe(true)
-        button.cd:SetReverse(true)
-        
-        if strfind(tag, "aura") then
-            button.count = CreateText(button, "OVERLAY", 12, "OUTLINE", "RIGHT")
-            button.count:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 1, -2)
-            button.count:SetTextColor(1, 1, 1)
-        end
-
-        button:Hide()
-        parent.QueueIcon(button, tag)
-        
-        return button
-    end
-
-    local function UpdateAuraIcon(button, unit, index, filter)
-        local name, icon, count, debuffType, duration, expire, _, canStealOrPurge, _, spellID, _, _, _, nameplateShowAll = UnitAura(unit, index, filter)
-
-        if button.spellID ~= spellID or button.expire ~= expire or button.count ~= count or button.duration ~= duration then
-            CooldownFrame_Set(button.cd, expire - duration, duration, true, true)
-        end
-
-        button.icon:SetTexture(icon)
-        button.expire = expire
-        button.duration = duration
-        button.spellID = spellID
-        button.canStealOrPurge = canStealOrPurge
-        button.nameplateShowAll = nameplateShowAll
-
-        -- button:SetScript("OnUpdate", function(self)
-        --     if MouseIsOver(self) then
-        --         GameTooltip:SetOwner(self, "ANCHOR_LEFT");
-        --         GameTooltip:SetUnitAura(unit, index, filter)
-        --     else
-        --         GameTooltip:ClearLines()
-        --         GameTooltip:Hide()
-        --     end
-        -- end)
-
-        button:SetScript("OnEnter", function(self)
-		    GameTooltip:SetOwner(self, "ANCHOR_LEFT");
-        	GameTooltip:SetUnitAura(unit, index, filter)
-        end)
-
-        button:SetScript("OnLeave", function(self)
-            GameTooltip:ClearLines()
-        	GameTooltip:Hide()
-        end)
-
-        if canStealOrPurge then
-            button.overlay:SetVertexColor(1, 1, 1)
-            button.overlay:Show()
-        else
-            button.overlay:Hide()
-        end
-
-        if count and count > 1 then
-            button.count:SetText(count)
-        else
-            button.count:SetText("")
-        end
-
-        --
-        button:Show()
-    end
-
-    local function UpdateAuras(unitFrame)
-        if not unitFrame.unit then return end   
-        local unit = unitFrame.unit 
-        local namePlate = C_NamePlate.GetNamePlateForUnit(unit)
-        local self = unitFrame.BuffFrame
-
-        if UnitIsUnit("player", unit) then
-            self:SetScale(1.2)
-        else
-            self:SetScale(JokPlates.db.profile.buffFrameScale)
-        end
-        
-        -- Buffs
-        local buffIndex = 1
-        if UnitIsUnit(unit, "player") then
-        	for i = 1, BUFF_MAX_DISPLAY do       
-	            local name, _, _, _, duration, expire, caster, canStealOrPurge, nameplateShowPersonal, spellID, _, isBossDebuff, castByPlayer, nameplateShowAll = UnitAura(unit, i, 'HARMFUL')
-	            if isBossDebuff then
-	                if not self.buffList[buffIndex] then
-	                    self.buffList[buffIndex] = CreateIcon(self, "aura"..buffIndex, buffIndex)
-	                end
-	                UpdateAuraIcon(self.buffList[buffIndex], unit, i, 'HARMFUL')
-	                buffIndex = buffIndex + 1
-	            end
-	        end
-        else
-	        for i = 1, BUFF_MAX_DISPLAY do       
-	            local name, _, _, _, duration, expire, caster, canStealOrPurge, nameplateShowPersonal, spellID, _, isBossDebuff, castByPlayer, nameplateShowAll = UnitAura(unit, i, 'HELPFUL')
-	            if (JokPlates.db.profile.spells.buffs.purgeable and canStealOrPurge) or JokPlates.db.profile.spells.buffs[spellID] or isBossDebuff then
-	                if not self.buffList[buffIndex] then
-	                    self.buffList[buffIndex] = CreateIcon(self, "aura"..buffIndex, buffIndex)
-	                end
-	                UpdateAuraIcon(self.buffList[buffIndex], unit, i, 'HELPFUL')
-	                buffIndex = buffIndex + 1
-	            end
-	        end
-	    end
-
-        for i = buffIndex, #self.buffList do 
-        	self.buffList[i]:Hide() 
-        end
-    end
-
-    local function NamePlate_OnEvent(self, event, arg1, ...)
-        if event == "PLAYER_ENTERING_WORLD" then
-            UpdateAuras(self)   
-        elseif event == "UNIT_AURA" and arg1 == self.unit then
-            UpdateAuras(self)
-        end
-    end
-
-    local function SetUnit(unitFrame, unit)
-        unitFrame.unit = unit
-        if unit then
-            unitFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-            unitFrame:RegisterUnitEvent("UNIT_AURA", unitFrame.unit)
-            unitFrame:SetScript("OnEvent", NamePlate_OnEvent)
-        else
-            unitFrame:UnregisterAllEvents()
-            unitFrame:SetScript("OnEvent", nil)
-        end
-    end
-
-    local function UpdateAllNamePlates()
-        for i, namePlate in ipairs(C_NamePlate.GetNamePlates()) do
-            local unitFrame = namePlate.Jok
-            UpdateAuras(unitFrame)
-        end
-    end
-
-    local function OnNamePlateCreated(namePlate)
-        if namePlate.UnitFrame:IsForbidden() then return end
-
-        namePlate.Jok = CreateFrame("Button", "$parentUnitFrame", namePlate)
-        namePlate.Jok:SetAllPoints(namePlate)
-        namePlate.Jok:SetFrameLevel(namePlate:GetFrameLevel())
-
-        -- Buff Frame
-        namePlate.Jok.BuffFrame = CreateFrame("Frame", "$parentJokBuff", namePlate.UnitFrame)
-
-        namePlate.Jok.BuffFrame:SetPoint("BOTTOMLEFT", namePlate.UnitFrame.BuffFrame, "TOPLEFT", 0, 3)
-        
-        namePlate.Jok.BuffFrame:SetWidth(130)
-        namePlate.Jok.BuffFrame:SetHeight(14)
-        namePlate.Jok.BuffFrame:SetFrameLevel(namePlate:GetFrameLevel())
-
-        namePlate.Jok.BuffFrame.buffList = {}        
-        namePlate.Jok.BuffFrame.buffActive = {}
-
-        namePlate.Jok.BuffFrame.LineUpIcons = function()
-            local lastframe
-            for v, frame in PairsByKeys(namePlate.Jok.BuffFrame.buffActive) do
-                frame:ClearAllPoints()
-                if not lastframe then
-                    local num = 0
-                    for k, j in pairs(namePlate.Jok.BuffFrame.buffActive) do
-                        num = num + 1
-                    end
-                    frame:SetPoint("LEFT", namePlate.Jok.BuffFrame, "LEFT", 0,0)
-                else
-                    frame:SetPoint("LEFT", lastframe, "RIGHT", 4, 0)
-                end
-
-                lastframe = frame
-            end
-        end
-        
-        namePlate.Jok.BuffFrame.QueueIcon = function(frame, tag)
-            frame.v = tag
-            
-            frame:HookScript("OnShow", function()
-                namePlate.Jok.BuffFrame.buffActive[frame.v] = frame
-                namePlate.Jok.BuffFrame.LineUpIcons()
-            end)
-            
-            frame:HookScript("OnHide", function()
-                namePlate.Jok.BuffFrame.buffActive[frame.v] = nil
-                namePlate.Jok.BuffFrame.LineUpIcons()
-            end)
-        end
-        
-        table.insert(Jok_PlateHolder, namePlate.Jok.BuffFrame)
-        
-        namePlate.Jok:EnableMouse(false)
-    end
-
-    local function OnNamePlateAdded(unit)
-        local namePlate = C_NamePlate.GetNamePlateForUnit(unit)
-        local unitFrame = namePlate.Jok
-
-        if namePlate.UnitFrame:IsForbidden() then return end
-
-        SetUnit(unitFrame, unit)
-        UpdateAuras(unitFrame)
-    end
-
-    local function OnNamePlateRemoved(unit)
-        local namePlate = C_NamePlate.GetNamePlateForUnit(unit)
-        SetUnit(namePlate.Jok, nil)
-    end
-
-    local function OnEvent(self, event, ...) 
-        if ( event == "VARIABLES_LOADED" ) then
-            UpdateAllNamePlates()
-        elseif ( event == "NAME_PLATE_CREATED" ) then
-            local namePlate = ...
-            OnNamePlateCreated(namePlate)
-        elseif ( event == "NAME_PLATE_UNIT_ADDED" ) then 
-            local unit = ...
-            OnNamePlateAdded(unit)
-        elseif ( event == "NAME_PLATE_UNIT_REMOVED" ) then 
-            local unit = ...
-            OnNamePlateRemoved(unit)
-        end
-    end
-
-    local NamePlatesFrame = CreateFrame("Frame", "NamePlatesFrame", UIParent) 
-    NamePlatesFrame:SetScript("OnEvent", OnEvent)
-    NamePlatesFrame:RegisterEvent("VARIABLES_LOADED")
-    NamePlatesFrame:RegisterEvent("NAME_PLATE_CREATED")
-    NamePlatesFrame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
-    NamePlatesFrame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
-end
-
--- CC Module
-function JokPlates:CC()
-
-    local spellList = {
-        -- Higher up = higher display priority
-
-        -- CCs
-        5211,   -- Mighty Bash (Stun)
-        108194, -- Asphyxiate (Stun)
-        199804, -- Between the Eyes (Stun)
-        118905, -- Static Charge (Stun)
-        1833,   -- Cheap Shot (Stun)
-        853,    -- Hammer of Justice (Stun)
-        179057, -- Chaos Nova (Stun)
-        132169, -- Storm Bolt (Stun)
-        408,    -- Kidney Shot (Stun)
-        163505, -- Rake (Stun)
-        119381, -- Leg Sweep (Stun)
-        89766,  -- Axe Toss (Stun)
-        30283,  -- Shadowfury (Stun)
-        24394,  -- Intimidation (Stun)
-        211881, -- Fel Eruption (Stun)
-        91800,  -- Gnaw (Stun)
-        205630, -- Illidan's Grasp (Stun)
-        203123, -- Maim (Stun)
-        200200, -- Holy Word: Chastise, Censure Talent (Stun)
-        22703,  -- Infernal Awakening (Stun)
-        132168, -- Shockwave (Stun)
-        20549,  -- War Stomp (Stun)
-        199085, -- Warpath (Stun)
-        204437, -- Lightning Lasso (Stun)
-        64044,  -- Psychic Horror (Stun)
-        255723, -- Bull Rush (Stun)
-        202346, -- Double Barrel (Stun)
-        213688, -- Fel Cleave (Stun)
-        204399, -- Earthfury (Stun)
-        91717,  -- Monstrous Blow (Stun)
-
-
-        33786,  -- Cyclone (Disorient)
-        5246,   -- Intimidating Shout (Disorient)
-        8122,   -- Psychic Scream (Disorient)
-        2094,   -- Blind (Disorient)
-        605,    -- Mind Control (Disorient)
-        105421, -- Blinding Light (Disorient)
-        207167, -- Blinding Sleet (Disorient)
-        31661,  -- Dragon's Breath (Disorient)
-        207685, -- Sigil of Misery (Disorient)
-        198909, -- Song of Chi-ji (Disorient)
-        202274, -- Incendiary Brew (Disorient)
-        118699, -- Fear (Disorient)
-        6358,   -- Seduction (Disorient)
-        261589, -- Seduction 2 (Disorient)
-        87204,  -- Sin and Punishment (Disorient)
-        2637,   -- Hibernate (Disorient)
-        226943, -- Mind Bomb (Disorient)
-        236748, -- Intimidating Roar (Disorient)
-
-        51514,  -- Hex (Incapacitate)
-        211004, -- Hex: Spider (Incapacitate)
-        210873, -- Hex: Raptor (Incapacitate)
-        211015, -- Hex: Cockroach (Incapacitate)
-        211010, -- Hex: Snake (Incapacitate)
-        196942, -- Hex: Voodoo Totem (Incapacitate)
-        277784, -- Hex: Wicker Mongrel (Incapacitate)
-        277778, -- Hex: Zandalari Tendonripper (Incapacitate)
-        118,    -- Polymorph (Incapacitate)
-        61305,  -- Polymorph: Black Cat (Incapacitate)
-        28272,  -- Polymorph: Pig (Incapacitate)
-        61721,  -- Polymorph: Rabbit (Incapacitate)
-        61780,  -- Polymorph: Turkey (Incapacitate)
-        28271,  -- Polymorph: Turtle (Incapacitate)
-        161353, -- Polymorph: Polar Bear Cub (Incapacitate)
-        126819, -- Polymorph: Porcupine (Incapacitate)
-        161354, -- Polymorph: Monkey (Incapacitate)
-        161355, -- Polymorph: Penguin (Incapacitate)
-        161372, -- Polymorph: Peacock (Incapacitate)
-        277792, -- Polymorph: Bumblebee (Incapacitate)
-        277787, -- Polymorph: Baby Direhorn (Incapacitate)
-        3355,   -- Freezing Trap (Incapacitate)
-        203337, -- Freezing Trap, Diamond Ice Honor Talent (Incapacitate)
-        115078, -- Paralysis (Incapacitate)
-        213691, -- Scatter Shot (Incapacitate)
-        6770,   -- Sap (Incapacitate)
-        20066,  -- Repentance (Incapacitate)
-        200196, -- Holy Word: Chastise (Incapacitate)
-        221527, -- Imprison, Detainment Honor Talent (Incapacitate)
-        217832, -- Imprison (Incapacitate)
-        99,     -- Incapacitating Roar (Incapacitate)
-        82691,  -- Ring of Frost (Incapacitate)
-        1776,   -- Gouge (Incapacitate)
-        107079, -- Quaking Palm (Incapacitate)
-        236025, -- Enraged Maim (Incapacitate)
-        197214, -- Sundering (Incapacitate)
-
-        -- Immunities
-        642,    -- Divine Shield
-        186265, -- Aspect of the Turtle
-        45438,  -- Ice Block
-        47585,  -- Dispersion
-        1022,   -- Blessing of Protection
-        204018, -- Blessing of Spellwarding
-        216113, -- Way of the Crane
-        31224,  -- Cloak of Shadows
-        212182, -- Smoke Bomb
-        212183, -- Smoke Bomb
-        8178,   -- Grounding Totem Effect
-        199448, -- Blessing of Sacrifice
-
-        -- Interrupts
-        1766,   -- Kick (Rogue)
-        2139,   -- Counterspell (Mage)
-        6552,   -- Pummel (Warrior)
-        19647,  -- Spell Lock (Warlock)
-        47528,  -- Mind Freeze (Death Knight)
-        57994,  -- Wind Shear (Shaman)
-        91802,  -- Shambling Rush (Death Knight)
-        96231,  -- Rebuke (Paladin)
-        106839, -- Skull Bash (Feral)
-        115781, -- Optical Blast (Warlock)
-        116705, -- Spear Hand Strike (Monk)
-        132409, -- Spell Lock (Warlock)
-        147362, -- Countershot (Hunter)
-        171138, -- Shadow Lock (Warlock)
-        183752, -- Consume Magic (Demon Hunter)
-        187707, -- Muzzle (Hunter)
-        212619, -- Call Felhunter (Warlock)
-        231665, -- Avengers Shield (Paladin)
-
-        -- Anti CCs
-        23920,  -- Spell Reflection
-        216890, -- Spell Reflection (Honor Talent)
-        213610, -- Holy Ward
-        212295, -- Nether Ward
-        48707,  -- Anti-Magic Shell
-        5384,   -- Feign Death
-        213602, -- Greater Fade
-
-        -- Silences
-        81261,  -- Solar Beam
-        202933, -- Spider Sting
-        233022, -- Spider Sting 2
-        1330,   -- Garrote
-        15487,  -- Silence
-        199683, -- Last Word
-        47476,  -- Strangulate
-        31935,  -- Avenger's Shield
-        204490, -- Sigil of Silence
-        217824, -- Shield of Virtue
-        43523,  -- Unstable Affliction Silence 1
-        196364, -- Unstable Affliction Silence 2
-
-        -- Disarms
-        236077, -- Disarm
-        236236, -- Disarm (Protection)
-        209749, -- Faerie Swarm (Disarm)
-        233759, -- Grapple Weapon
-        207777, -- Dismantle
-
-        -- Roots
-        339,    -- Entangling Roots
-        170855, -- Entangling Roots (Nature's Grasp)
-        201589, -- Entangling Roots (Tree of Life)
-        235963, -- Entangling Roots (Feral honor talent)
-        122,    -- Frost Nova
-        102359, -- Mass Entanglement
-        64695,  -- Earthgrab
-        200108, -- Ranger's Net
-        212638, -- Tracker's Net
-        162480, -- Steel Trap
-        204085, -- Deathchill
-        233395, -- Frozen Center
-        233582, -- Entrenched in Flame
-        201158, -- Super Sticky Tar
-        33395,  -- Freeze
-        228600, -- Glacial Spike
-        116706, -- Disable
-        45334,  -- Immobilized
-        53148,  -- Charge (Hunter Pet)
-        190927, -- Harpoon
-        136634, -- Narrow Escape (unused?)
-        198121, -- Frostbite
-        117526, -- Binding Shot
-        207171, -- Winter is Coming
-    }
-
-    local priorityList = {}
-
-    local interrupts = {
-        [1766] = 5, -- Kick (Rogue)
-        [2139] = 6, -- Counterspell (Mage)
-        [6552] = 4, -- Pummel (Warrior)
-        [19647] = 6, -- Spell Lock (Warlock)
-        [47528] = 3, -- Mind Freeze (Death Knight)
-        [57994] = 3, -- Wind Shear (Shaman)
-        [91802] = 2, -- Shambling Rush (Death Knight)
-        [96231] = 4, -- Rebuke (Paladin)
-        [93985] = 4, -- Skull Bash (Feral)
-        --[97547] = 5, -- Solar Beam (Druid)
-        [106839] = 4, -- Skull Bash (Feral)
-        [115781] = 6, -- Optical Blast (Warlock)
-        [116705] = 4, -- Spear Hand Strike (Monk)
-        [132409] = 6, -- Spell Lock (Warlock)
-        [147362] = 3, -- Countershot (Hunter)
-        [171138] = 6, -- Shadow Lock (Warlock)
-        [183752] = 3, -- Consume Magic (Demon Hunter)
-        [187707] = 3, -- Muzzle (Hunter)
-        [212619] = 6, -- Call Felhunter (Warlock)
-        [231665] = 3, -- Avengers Shield (Paladin)
-    }
-
-    for k, v in ipairs(spellList) do
-        priorityList[v] = k
-    end
-
-    local function OnNamePlateCreated(frame)
-        if frame:IsForbidden() then return end
-
-        frame.cc = CreateFrame("Frame", "$parent.CC", frame)
-
-        frame.cc:SetPoint("LEFT", frame.healthBar, "RIGHT", 3, 2)
-        
-        frame.cc:SetWidth(24)
-        frame.cc:SetHeight(24)
-        frame.cc:SetFrameLevel(frame:GetFrameLevel())
-        
-        frame.cc.icon = frame.cc:CreateTexture(nil, "OVERLAY", nil, 3)
-        frame.cc.icon:SetAllPoints(frame.cc)
-
-        frame.cc.cd = CreateFrame("Cooldown", nil, frame.cc, "CooldownFrameTemplate")
-        frame.cc.cd:SetAllPoints(frame.cc)
-        frame.cc.cd:SetDrawEdge(false)
-        frame.cc.cd:SetAlpha(1)
-        frame.cc.cd:SetDrawSwipe(true)
-        frame.cc.cd:SetReverse(true)
-
-        frame.cc.activeId = nil
-        frame.cc.aura = { spellId = nil, icon = nil, start = nil, expire = nil }
-        frame.cc.interrupt = { spellId = nil, icon = nil, start = nil, expire = nil }
-    end
-
-    local function ApplyAura(frame)
-        local spellId, icon, start, expire
-
-        -- Check if an aura was found
-        if frame.aura.spellId then
-            spellId, icon, start, expire = frame.aura.spellId, frame.aura.icon, frame.aura.start, frame.aura.expire
-        end
-
-        -- Check if there's an interrupt lockout
-        if frame.interrupt.spellId then
-            -- Make sure the lockout is still active
-            if frame.interrupt.expire < GetTime() then
-                frame.interrupt.spellId = nil
-            -- Select the greatest priority (aura or interrupt)
-            elseif spellId and priorityList[frame.interrupt.spellId] < priorityList[spellId] or not spellId then
-                spellId, icon, start, expire = frame.interrupt.spellId, frame.interrupt.icon, frame.interrupt.start, frame.interrupt.expire
-            end
-        end
-
-        -- Set up the icon & cooldown
-        if spellId then
-            CooldownFrame_Set(frame.cd, start, expire - start, 1, true)
-            if spellId ~= frame.activeId then
-                frame.activeId = spellId
-                frame.icon:SetTexture(icon)
-            end
-        -- Remove cooldown & reset icon back to class icon
-        elseif frame.activeId then
-            frame.activeId = nil
-            frame.icon:SetTexture(nil)
-            CooldownFrame_Set(frame.cd, 0, 0, 0, true)
-        end
-    end
-
-    local function UpdateAuras(unit)
-        local namePlate = C_NamePlate.GetNamePlateForUnit(unit)
-        if not namePlate then return end
-
-        local frame = namePlate.UnitFrame
-
-        if UnitIsUnit(frame.displayedUnit, "player") then return end
-
-        local priorityAura = {
-            icon = nil,
-            spellId = nil,
-            duration = nil,
-            expires = nil,
-        }
-
-        local duration, icon, expires, spellId, _
-
-        for i = 1, BUFF_MAX_DISPLAY do
-            _, icon, _, _, duration, expires, _, _, _, spellId = UnitAura(unit, i, "HARMFUL")
-            if not spellId then break end
-
-            if priorityList[spellId] then
-                -- Select the greatest priority aura
-                if not priorityAura.spellId or priorityList[spellId] < priorityList[priorityAura.spellId] then
-                    priorityAura.icon = icon
-                    priorityAura.spellId = spellId
-                    priorityAura.duration = duration
-                    priorityAura.expires = expires
-                end
-            end
-        end
-
-        if priorityAura.spellId then
-            frame.cc.aura.spellId = priorityAura.spellId
-            frame.cc.aura.icon = priorityAura.icon
-            frame.cc.aura.start = priorityAura.expires - priorityAura.duration
-            frame.cc.aura.expire = priorityAura.expires
-        else
-            frame.cc.aura.spellId = nil
-        end
-
-        ApplyAura(frame.cc)
-    end
-
-    local function UpdateInterrupts()
-        local _, event,_,_,_,_,_, destGUID, _,_,_, spellId = CombatLogGetCurrentEventInfo()
-
-        if not interrupts[spellId] then return end
-
-        if event ~= "SPELL_INTERRUPT" and event ~= "SPELL_CAST_SUCCESS" then return end
-
-        if event == "SPELL_INTERRUPT" then
-            local _, _, icon = GetSpellInfo(spellId)
-            local start = GetTime()
-            local duration = interrupts[spellId]
-
-            for _, namePlate in pairs(C_NamePlate.GetNamePlates(issecure())) do
-                local frame = namePlate.UnitFrame
-                local unit = frame.displayedUnit
-                
-                if not UnitIsUnit(frame.displayedUnit, "player") and UnitIsPlayer(frame.displayedUnit) then 
-	                if UnitGUID(unit) == destGUID then
-	                    frame.cc.interrupt.spellId = spellId
-	                    frame.cc.interrupt.icon = icon
-	                    frame.cc.interrupt.start = start
-	                    frame.cc.interrupt.expire = start + duration
-
-	                    ApplyAura(frame.cc)
-
-	                    -- Check for auras when an interrupt lockout expires
-	                    C_Timer.After(duration, function()
-	                        UpdateAuras(unit)
-	                    end)
-	                end
-	            end
-            end
-        end
-    end
-
-    local function OnNamePlateAdded(unit)
-        local namePlate = C_NamePlate.GetNamePlateForUnit(unit)
-        local frame = namePlate.UnitFrame
-
-        if frame:IsForbidden() then return end
-
-        UpdateAuras(frame.displayedUnit)
-    end
-
-    local function NamePlates_OnEvent(self, event, ...) 
-        if ( event == "NAME_PLATE_CREATED" ) then
-            local namePlate = ...
-            OnNamePlateCreated(namePlate.UnitFrame)
-        elseif ( event == "NAME_PLATE_UNIT_ADDED" ) then 
-            local unit = ...
-            OnNamePlateAdded(unit)
-        elseif ( event == "COMBAT_LOG_EVENT_UNFILTERED" ) then
-            UpdateInterrupts()
-        elseif ( event == "UNIT_AURA" ) then
-            local unit = ...
-            if not unit:find("nameplate") then return end
-            UpdateAuras(unit)
-        end
-    end
-
-    local NamePlatesFrame = CreateFrame("Frame", "NamePlatesFrame", UIParent) 
-    NamePlatesFrame:SetScript("OnEvent", NamePlates_OnEvent)
-    NamePlatesFrame:RegisterEvent("UNIT_AURA")
-    NamePlatesFrame:RegisterEvent("NAME_PLATE_CREATED")
-    NamePlatesFrame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
-    NamePlatesFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+    frame.castBar.Icon:SetSize(JokPlates.db.profile.healthHeight*2, JokPlates.db.profile.healthHeight*2)
+    frame.castBar.Icon:SetTexCoord(0.1, 0.9, 0.1, 0.9)
+    frame.castBar.Icon:ClearAllPoints()
+    frame.castBar.Icon:SetPoint("BOTTOMRIGHT", frame.castBar, "BOTTOMLEFT", -1, 0)
 end
 
 SLASH_JokPlates1 = "/jokplates"

@@ -12,3 +12,5 @@ embeds.xml
 #@end-no-lib-strip@
 
 JokPlates.lua
+Options.lua
+SpellList.lua

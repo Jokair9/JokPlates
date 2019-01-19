@@ -5,6 +5,10 @@ JokPlates = LibStub("AceAddon-3.0"):GetAddon("JokPlates")
 -------------------------------------------------------------------------------
 
 function JokPlates:Refresh()
+	local nameplates_buffs = JokPlatesFrameMixin.nameplates_buffs
+	local nameplates_debuffs = JokPlatesFrameMixin.nameplates_debuffs
+	local nameplates_personal = JokPlatesFrameMixin.nameplates_personal
+
 	for spellID, spell in pairs(nameplates_buffs) do
 		if self.settings.spells.buffs[spellID] == nil then
 			self.settings.spells.buffs[spellID] = true

@@ -7,11 +7,8 @@ JokPlatesFrameMixin = {};
 local LCG = LibStub("LibCustomGlow-1.0")
 local _, class = UnitClass("player")
 
-local Jok_PlateHolder = {}
-
 local glowType = "Standard"
 
-local castbarFont = SystemFont_Shadow_Small:GetFont()
 local statusBar = "Interface\\AddOns\\JokPlates\\media\\UI-StatusBar"
 
 local ccList
@@ -102,10 +99,6 @@ function JokPlates:OnEnable()
     SetCVar("nameplateOccludedAlphaMult", 1)
 
     SetCVar("nameplateShowAll", 1)
-end
-
-function JokPlates:OnLoad()
-    
 end
 
 -------------------------------------------------------------------------------
@@ -339,7 +332,6 @@ function JokPlates:UpdateCastbarTimer(frame)
         if ( frame.castBar.casting ) then
             local current = frame.castBar.maxValue - frame.castBar.value
             if ( current > 0 ) then
-                print("test")
                 frame.castBar.CastTime:SetText(JokPlates:FormatTime(current))
             end
         else
@@ -554,7 +546,7 @@ function JokPlates:UpdateCastbar(frame)
         frame.castBar.CastTime = frame.castBar:CreateFontString(nil, "OVERLAY")
         frame.castBar.CastTime:Hide()
         frame.castBar.CastTime:SetPoint("LEFT", frame.castBar, "RIGHT", 4, 0)
-        frame.castBar.CastTime:SetFont(castbarFont, 9, "OUTLINE")
+        frame.castBar.CastTime:SetFont(SystemFont_Shadow_Small:GetFont(), 9, "OUTLINE")
         frame.castBar.CastTime:Show()
     end
 
@@ -1042,8 +1034,11 @@ function JokPlates:NAME_PLATE_UNIT_ADDED(_, unit)
 
     if UnitIsUnit(frame.displayedUnit, "player") then 
         frame.healthBar:SetHeight(self.settings.personalHealthHeight)
+        ClassNameplateManaBarFrame:SetSize(JokPlates.db.profile.personalWidth, JokPlates.db.profile.personalManaHeight)
         self:UpdateHealth(frame, "player")
-        return
+    else
+        frame.healthBar.LeftText:Hide()
+        frame.healthBar.RightText:Hide()
     end
 
     if glowMob[frame.npcID] then
@@ -1067,6 +1062,14 @@ function JokPlates:NAME_PLATE_UNIT_ADDED(_, unit)
         frame.BuffFrame2:SetScale(JokPlates.db.profile.buffFrameScale)
     end
 
+    if UnitIsPlayer(frame.unit) and not UnitCanAttack("player", frame.unit) and not UnitIsUnit("player", frame.unit) then
+        frame.healthBar:SetHeight(5)
+        frame.castBar:SetHeight(7)
+    elseif not UnitIsUnit("player", frame.unit) then
+        frame.healthBar:SetHeight(JokPlates.db.profile.healthHeight)
+        frame.castBar:SetHeight(9)
+    end
+
     self:ThreatColor(frame)
     self:UpdateBuffs(frame)
     self:UpdateCC(frame)
@@ -1085,6 +1088,9 @@ function JokPlates:NAME_PLATE_UNIT_REMOVED(_, unit)
         self:GlowNameplate(frame, false)
         frame.isGlowing = false
     end
+
+    frame.healthBar.LeftText:Hide()
+    frame.healthBar.RightText:Hide()
 
     CastingBarFrame_SetUnit(frame.castBar, nil, false, true)
 end

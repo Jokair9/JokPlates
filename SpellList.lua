@@ -361,7 +361,7 @@ JokPlatesFrameMixin.nameplates_personal = {
 };
 
 -- Table for specific npcid color / TODO : Add Moblist colors to options
-JokPlatesFrameMixin.moblist = {
+JokPlatesFrameMixin.colorList = {
     -- Mythic +
         -- Atal'dazar   
             [127757] = {tag = "DANGEROUS"}, -- Reanimated Honor Guard
@@ -398,7 +398,7 @@ JokPlatesFrameMixin.moblist = {
     [144086] = {tag = "OTHER"}, -- Training Dummy
 }
 
-JokPlatesFrameMixin.glowMob = {              
+JokPlatesFrameMixin.glowList = {              
     [120651] = true, -- Explosives Orbs
 
     [144085] = true, -- Training Dummy
@@ -406,7 +406,7 @@ JokPlatesFrameMixin.glowMob = {
 }
 
 -- Totem list to anchor icon to nameplate / TODO : Add totem list to options
-JokPlatesFrameMixin.totemlist = {
+JokPlatesFrameMixin.iconList = {
     [5925] = {icon = 136039}, -- Grounding Totem
     [105427] = {icon = 135829}, -- Skyfury Totem
     [2630] = {icon = 136102}, -- Earthbind Totem

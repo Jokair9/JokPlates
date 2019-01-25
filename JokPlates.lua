@@ -4,6 +4,9 @@ JokPlatesFrameMixin = {};
 -------------------------------------------------------------------------------
 -- Locals
 -------------------------------------------------------------------------------
+
+local priorityList = {}
+
 local LCG = LibStub("LibCustomGlow-1.0")
 local _, class = UnitClass("player")
 
@@ -16,12 +19,12 @@ local interrupts
 local nameplates_buffs
 local nameplates_debuffs
 local nameplates_personal
-local moblist
-local glowMob
-local totemlist
+local colorList
+local glowList
+local iconList
 local PowerPrediction
 
-local nameplates_defaults = {
+local defaults_settings = {
     profile = {
         arenanumber = true,
         sticky = true,
@@ -45,10 +48,8 @@ local nameplates_defaults = {
     }
 }
 
-local priorityList = {}
-
 function JokPlates:OnInitialize()
-	self.db = LibStub("AceDB-3.0"):New("JokPlatesDB", nameplates_defaults, true)
+	self.db = LibStub("AceDB-3.0"):New("JokPlatesDB", defaults_settings, true)
 	self.settings = self.db.profile
 
     ccList = JokPlatesFrameMixin.ccList
@@ -56,9 +57,9 @@ function JokPlates:OnInitialize()
     nameplates_buffs = JokPlatesFrameMixin.nameplates_buffs
     nameplates_debuffs = JokPlatesFrameMixin.nameplates_debuffs
     nameplates_personal = JokPlatesFrameMixin.nameplates_personal
-    moblist = JokPlatesFrameMixin.moblist
-    glowMob = JokPlatesFrameMixin.glowMob
-    totemlist = JokPlatesFrameMixin.totemlist
+    colorList = JokPlatesFrameMixin.colorList
+    glowList = JokPlatesFrameMixin.glowList
+    iconList = JokPlatesFrameMixin.iconList
     PowerPrediction = JokPlatesFrameMixin.PowerPrediction
 
 	self:SetupOptions()
@@ -209,7 +210,6 @@ function JokPlates:CreateIcon(parent, tag, index)
     return button
 end
 
--- Format Time
 function JokPlates:FormatTime(s)
     if s > 86400 then
         -- Days
@@ -228,7 +228,6 @@ function JokPlates:FormatTime(s)
     return floor(s), s - floor(s)
 end
 
--- Format Number
 function JokPlates:FormatValue(number)
     if ( number < 1e4 ) then
         return floor(number)
@@ -243,7 +242,6 @@ function JokPlates:FormatValue(number)
     end
 end
 
--- Abbreviate Function
 function JokPlates:Abbrev(str,length)
     if ( str ~= nil and length ~= nil ) then
         return str:len()>length and str:sub(1,length)..".." or str
@@ -251,26 +249,22 @@ function JokPlates:Abbrev(str,length)
     return ""
 end
 
--- Force Nameplate Update 
 function JokPlates:ForceUpdate()
     for i, frame in ipairs(C_NamePlate.GetNamePlates(issecure())) do
         CompactUnitFrame_UpdateAll(frame.UnitFrame)
     end
 end
 
--- Check for threat.
 function JokPlates:IsOnThreatListWithPlayer(unit)
     local _, threatStatus = UnitDetailedThreatSituation("player", unit)
     return threatStatus ~= nil
 end
 
--- Checks to see if unit has tank role.
 function JokPlates:PlayerIsTank(unit)
     local assignedRole = UnitGroupRolesAssigned(unit)
     return assignedRole == "TANK"
 end
 
--- Off Tank Color Checks
 function JokPlates:UseOffTankColor(unit)
     if ( UnitPlayerOrPetInRaid(unit) or UnitPlayerOrPetInParty(unit) ) then
         if ( not UnitIsUnit("player", unit) and JokPlates:PlayerIsTank("player") and JokPlates:PlayerIsTank(unit) ) then
@@ -280,12 +274,10 @@ function JokPlates:UseOffTankColor(unit)
     return false
 end
 
--- Is Pet?
 function JokPlates:IsPet(unit)
     return (not UnitIsPlayer(unit) and UnitPlayerControlled(unit))
 end
 
--- Class Color Text
 function JokPlates:SetTextColorByClass(unit, text)
     local _, class = UnitClass (unit)
     if (class) then
@@ -297,7 +289,6 @@ function JokPlates:SetTextColorByClass(unit, text)
     return text
 end
 
--- Class Color Text
 function JokPlates:SetPlayerNameByClass(unit, text)
     local _, class = UnitClass (unit)
     if (class) then
@@ -309,7 +300,6 @@ function JokPlates:SetPlayerNameByClass(unit, text)
     return text
 end
 
--- Group Members Snippet 
 function JokPlates:GroupMembers(reversed, forceParty)
     local unit  = (not forceParty and IsInRaid()) and 'raid' or 'party'
     local numGroupMembers = forceParty and GetNumSubgroupMembers()  or GetNumGroupMembers()
@@ -326,7 +316,6 @@ function JokPlates:GroupMembers(reversed, forceParty)
     end
 end
 
--- Update CastBar Timer
 function JokPlates:UpdateCastbarTimer(frame)
     if ( frame.unit ) then
         if ( frame.castBar.casting ) then
@@ -342,14 +331,12 @@ function JokPlates:UpdateCastbarTimer(frame)
     end
 end
 
--- Get NPCID
 function JokPlates:GetNpcID(unit)
     local npcID = select(6, strsplit("-", UnitGUID(unit)))
 
     return tonumber(npcID)
 end
 
--- Return r,g,b from npcid/table
 function JokPlates:DangerousColor(frame)
 	local r, g, b
 	local dangerousColor = {r = 1.0, g = 0.7, b = 0.0}
@@ -357,7 +344,7 @@ function JokPlates:DangerousColor(frame)
 
 	local npcID = frame.npcID
 
-	for k, npcs in pairs(moblist) do
+	for k, npcs in pairs(colorList) do
 		local tag = npcs["tag"]
 
 		if k == npcID then
@@ -371,7 +358,6 @@ function JokPlates:DangerousColor(frame)
     return r, g, b
 end
 
--- Add HealthText
 function JokPlates:AddHealthbarText(frame)
     if ( frame ) then
         local HealthBar = frame.UnitFrame.healthBar
@@ -397,7 +383,7 @@ function JokPlates:UpdateHealth(frame, unit)
 
     frame.healthBar.LeftText:Show()
     frame.healthBar.RightText:Show()
-
+    
     if ( health >= 1 ) then
         frame.healthBar.LeftText:SetText(perc.."%")
         frame.healthBar.RightText:SetText(self:FormatValue(health))
@@ -416,6 +402,7 @@ function JokPlates:GlowNameplate(frame, show)
         elseif glowType == "Standard" then
             LCG.ButtonGlow_Start(frame.healthBar)
         end
+        frame.isGlowing = true
     else
         if glowType == "AutoCast" then
             LCG.AutoCastGlow_Stop(frame.healthBar)
@@ -424,7 +411,57 @@ function JokPlates:GlowNameplate(frame, show)
         elseif glowType == "Standard" then
             LCG.ButtonGlow_Stop(frame.healthBar)
         end
+        frame.isGlowing = false
     end 
+end
+
+function JokPlates:DrawLine(frame, rgb, size, yOffset, show)
+    if show then  
+        frame.line:SetStartPoint("CENTER", UIParent, 0, -15)
+        frame.line:SetEndPoint("CENTER", frame, 0, yOffset)
+        frame.line:SetThickness(size)
+        frame.line:SetColorTexture(unpack(rgb))
+
+        frame.line.active = true
+        frame.line:Show()
+    else
+        frame.line.active = false
+        frame.line:Hide()
+    end
+end
+
+function JokPlates:DrawCircle(frame, rgb, size, yOffset, show)
+    if show then
+        frame.circle:SetSize(size, size)
+        frame.circle:SetPoint("CENTER", frame, "CENTER", 0, yOffset)
+        frame.circle:SetTexture("Interface\\AddOns\\JokPlates\\media\\Circle")
+        frame.circle:SetVertexColor(unpack(rgb))
+        frame.circle.active = true
+        frame.circle:Show()
+    else
+        frame.circle.active = false
+        frame.circle:Hide()
+    end
+end
+
+function JokPlates:SetIcon(frame, size, show)
+    if show then
+        for k, npcs in pairs(iconList) do
+            local icon = npcs["icon"]
+            if k == frame.npcID then
+                frame.icon:Show()
+                frame.icon:SetTexture(npcs["icon"])
+                frame.icon:SetSize(size, size)
+                frame.icon:SetPoint("BOTTOM", frame.name, "TOP", 0, 2)
+                frame.icon.active = true
+            end
+        end
+        
+    else
+        frame.icon:SetTexture(nil)
+        frame.icon:Hide()
+        frame.icon.active = false
+    end
 end
 
 -- UpdateBuffs Hook
@@ -629,7 +666,7 @@ function JokPlates:ThreatColor(frame)
                 r, g, b = classColor.r, classColor.g, classColor.b
             elseif ( CompactUnitFrame_IsTapDenied(frame) ) then
                 r, g, b = 0.5, 0.5, 0.5
-            elseif ( moblist[frame.npcID] ) then
+            elseif ( colorList[frame.npcID] ) then
 				r, g, b = JokPlates:DangerousColor(frame)
             elseif ( frame.optionTable.colorHealthBySelection ) then
                 if ( frame.optionTable.considerSelectionInCombatAsHostile and self:IsOnThreatListWithPlayer(frame.displayedUnit) ) then    
@@ -707,6 +744,7 @@ function JokPlates:ApplyCC(frame)
 end
 
 function JokPlates:UpdateCC(frame)
+    if not frame.displayedUnit then return end
     if UnitIsUnit(frame.displayedUnit, "player") then return end
 
     local priorityAura = {
@@ -768,10 +806,10 @@ function JokPlates:UpdateInterrupts()
                     frame.cc.interrupt.start = start
                     frame.cc.interrupt.expire = start + duration
 
-                    ApplyCC(frame.cc)
+                    self:ApplyCC(frame.cc)
 
                     C_Timer.After(duration, function()
-                        UpdateCC(frame)
+                        self:UpdateCC(frame)
                     end)
                 end
             end
@@ -921,17 +959,8 @@ function JokPlates:NAME_PLATE_CREATED(_, namePlate)
     frame.selectionHighlight:SetTexture(statusBar)
     frame.castBar:SetStatusBarTexture(statusBar)
 
-    frame.RaidTargetFrame:SetScale(1.2)
-    frame.RaidTargetFrame:SetPoint("RIGHT", frame.healthBar, "LEFT", -7, 0)
-
     self:UpdateCastbar(frame)
     self:AddHealthbarText(namePlate)
-
-    -- TOP ICON
-
-    frame.icon = frame:CreateTexture(nil, "OVERLAY")
-    frame.icon:SetSize(30, 30)
-    frame.icon:SetPoint("BOTTOM", frame.name, "TOP", 0, 2)
 
 	-- Hook UpdateBuffs
 	frame.BuffFrame.UpdateBuffs = JokPlates_UpdateBuffs
@@ -952,15 +981,22 @@ function JokPlates:NAME_PLATE_CREATED(_, namePlate)
 		end
 	end
 
-    -- CC FRAME
+    frame.circle = frame:CreateTexture(nil, "ARTWORK")
+    frame.line = frame:CreateLine(_, "OVERLAY", 7)   
 
+    -- ICON
+    frame.icon = frame:CreateTexture(nil, "OVERLAY")
+
+    -- CC FRAME
     frame.cc = CreateFrame("Frame", "$parent.CC", frame)
-    frame.cc:SetPoint("LEFT", frame.healthBar, "RIGHT", 3, 2)
-    
+    frame.cc:SetPoint("LEFT", frame.healthBar, "RIGHT", 3, 2)   
     frame.cc:SetWidth(24)
     frame.cc:SetHeight(24)
-    frame.cc:SetFrameLevel(frame:GetFrameLevel())
-    
+    frame.cc:SetFrameLevel(frame:GetFrameLevel())   
+    frame.cc.activeId = nil
+    frame.cc.aura = { spellId = nil, icon = nil, start = nil, expire = nil }
+    frame.cc.interrupt = { spellId = nil, icon = nil, start = nil, expire = nil }
+
     frame.cc.icon = frame.cc:CreateTexture(nil, "OVERLAY", nil, 3)
     frame.cc.icon:SetAllPoints(frame.cc)
 
@@ -971,19 +1007,13 @@ function JokPlates:NAME_PLATE_CREATED(_, namePlate)
     frame.cc.cd:SetDrawSwipe(true)
     frame.cc.cd:SetReverse(true)
 
-    frame.cc.activeId = nil
-    frame.cc.aura = { spellId = nil, icon = nil, start = nil, expire = nil }
-    frame.cc.interrupt = { spellId = nil, icon = nil, start = nil, expire = nil }
-
     -- BUFF FRAME
-
     frame.BuffFrame2 = CreateFrame("Frame", "$parent.DebuffFrame", frame)
-
-    frame.BuffFrame2:SetPoint("BOTTOMLEFT", frame.BuffFrame, "TOPLEFT", 0, 3)
-    
+    frame.BuffFrame2:SetPoint("BOTTOMLEFT", frame.BuffFrame, "TOPLEFT", 0, 3)  
     frame.BuffFrame2:SetWidth(130)
     frame.BuffFrame2:SetHeight(14)
     frame.BuffFrame2:SetFrameLevel(namePlate:GetFrameLevel())
+    frame.BuffFrame2:SetScale(JokPlates.db.profile.buffFrameScale)
 
     frame.BuffFrame2.buffList = {}        
     frame.BuffFrame2.buffActive = {}
@@ -1030,37 +1060,7 @@ function JokPlates:NAME_PLATE_UNIT_ADDED(_, unit)
     frame.unit = unit
     frame.displayedUnit = unit -- For vehicles
     frame.unitGUID = UnitGUID(unit)
-    frame.npcID = self:GetNpcID(unit)    
-
-    if UnitIsUnit(frame.displayedUnit, "player") then 
-        frame.healthBar:SetHeight(self.settings.personalHealthHeight)
-        ClassNameplateManaBarFrame:SetSize(JokPlates.db.profile.personalWidth, JokPlates.db.profile.personalManaHeight)
-        self:UpdateHealth(frame, "player")
-    else
-        frame.healthBar.LeftText:Hide()
-        frame.healthBar.RightText:Hide()
-    end
-
-    if glowMob[frame.npcID] then
-        self:GlowNameplate(frame, true)
-        frame.isGlowing = true
-    end
-
-    if totemlist[frame.npcID] then
-        for k, npcs in pairs(totemlist) do
-            local icon = npcs["icon"]
-            if k == frame.npcID then
-                frame.icon:SetTexture(npcs["icon"])
-            end
-        end
-        frame.icon.active = true
-    end
-
-    if UnitIsUnit("player", frame.displayedUnit) then
-        frame.BuffFrame2:SetScale(1.2)
-    else
-        frame.BuffFrame2:SetScale(JokPlates.db.profile.buffFrameScale)
-    end
+    frame.npcID = self:GetNpcID(unit)
 
     if UnitIsPlayer(frame.unit) and not UnitCanAttack("player", frame.unit) and not UnitIsUnit("player", frame.unit) then
         frame.healthBar:SetHeight(5)
@@ -1070,23 +1070,51 @@ function JokPlates:NAME_PLATE_UNIT_ADDED(_, unit)
         frame.castBar:SetHeight(9)
     end
 
+    frame.RaidTargetFrame:SetScale(1.2)
+    frame.RaidTargetFrame:SetPoint("RIGHT", frame.healthBar, "LEFT", -7, 0)
+
     self:ThreatColor(frame)
     self:UpdateBuffs(frame)
     self:UpdateCC(frame)
+
+    -- Glow Nameplate
+    if glowList[frame.npcID] then
+        self:GlowNameplate(frame, true)
+    end
+
+    -- Icon
+    if iconList[frame.npcID] then
+        self:SetIcon(frame, 30, true)
+    end
+
+    if UnitIsUnit(frame.displayedUnit, "player") then
+        frame.healthBar:SetHeight(self.settings.personalHealthHeight)
+        ClassNameplateManaBarFrame:SetSize(JokPlates.db.profile.personalWidth, JokPlates.db.profile.personalManaHeight)
+        self:UpdateHealth(frame, "player")
+        frame.BuffFrame2:SetScale(1.2)
+    end
 end
 
 function JokPlates:NAME_PLATE_UNIT_REMOVED(_, unit)
 	local namePlate = C_NamePlate.GetNamePlateForUnit(unit)
 	local frame = namePlate.UnitFrame
 
+    if ( frame:IsForbidden() ) then return end
+
     if frame.icon.active then
-        frame.icon:SetTexture(nil)
-        frame.icon.active = false
+        self:SetIcon(frame, 30, false)
     end
 
     if frame.isGlowing then
         self:GlowNameplate(frame, false)
-        frame.isGlowing = false
+    end
+
+    if frame.line.active then
+        self:DrawLine(frame, nil, nil, nil, false)
+    end
+
+    if frame.circle.active then
+        self:DrawCircle(frame, nil, nil, nil, false)
     end
 
     frame.healthBar.LeftText:Hide()
@@ -1098,6 +1126,7 @@ end
 function JokPlates:UNIT_AURA(_, unit)
     if not unit:find("nameplate") then return end
     local namePlate = C_NamePlate.GetNamePlateForUnit(unit)
+    if not namePlate then return end
     local frame = namePlate.UnitFrame
 
     self:UpdateCC(frame)

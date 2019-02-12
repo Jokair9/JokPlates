@@ -26,6 +26,37 @@ function JokPlates:Refresh()
 	end
 end
 
+function JokPlates:ShutdownInterfaceOptionsPanel()
+	local frames = {
+		InterfaceOptionsNamesPanelUnitNameplatesFriendsText,
+		InterfaceOptionsNamesPanelUnitNameplatesEnemies,
+		InterfaceOptionsNamesPanelUnitNameplatesFriends,
+		InterfaceOptionsNamesPanelUnitNameplatesMakeLarger,
+		InterfaceOptionsNamesPanelUnitNameplatesShowAll,
+		InterfaceOptionsNamesPanelUnitNameplatesFriendlyMinions,
+		InterfaceOptionsNamesPanelUnitNameplatesEnemyMinions,
+		InterfaceOptionsNamesPanelUnitNameplatesEnemyMinus,
+		InterfaceOptionsNamesPanelUnitNameplatesMotionDropDown,
+	}
+
+	for _, frame in ipairs (frames) do
+		frame:Hide()
+	end
+
+	InterfaceOptionsNamesPanelUnitNameplatesMakeLarger.setFunc = function() end
+	InterfaceOptionsNamesPanelUnitNameplatesAggroFlash:SetPoint("TOPLEFT", InterfaceOptionsNamesPanelUnitNameplates, "BOTTOMLEFT", 0, -8)
+	
+	local button = CreateFrame("Button", "InterfaceOptionsNamesPanelUnitNameplatesJokPlatesButton", InterfaceOptionsNamesPanel, "UIPanelButtonTemplate")
+	button:SetWidth(200)
+    button:SetHeight(30)
+	button:SetPoint("topleft", InterfaceOptionsNamesPanelUnitNameplatesAggroFlash, "bottomleft", 0, -8)
+	button:SetText("Open JokPlates")
+	button:SetScript("OnClick", function()
+		InterfaceOptionsFrame_OpenToCategory("|cffFF7D0AJok|rPlates")
+		InterfaceOptionsFrame_OpenToCategory("|cffFF7D0AJok|rPlates")
+	end)
+end
+
 function JokPlates:SetupOptions()
     local nameplates_buffs = JokPlatesFrameMixin.nameplates_buffs
     local nameplates_debuffs = JokPlatesFrameMixin.nameplates_debuffs
@@ -354,7 +385,7 @@ function JokPlates:SetupOptions()
 		name = "JokPlates",
 		descStyle = "inline",
 		type = "group",
-		childGroups = "tab",
+		childGroups = "tree",
 		args = {
 			desc = {
 				type = "description",
@@ -545,62 +576,11 @@ function JokPlates:SetupOptions()
 				order = 3,
 				type = "group",
 				args = {
-					overlap = {
-				        name = "Overlap Options",
-				        type = "group",
-				        inline = true,
-				        order = 30,
-				        
-				        args = {
-				            stacking = {
-				                type = "toggle",
-				                name = "Stacking Nameplates",
-				                desc = "|cffaaaaaaNameplates will stack on top of each other. |r",
-				                descStyle = "inline",
-				                width = "full",
-				                order = 1,
-				                set = function(info,val)
-				                    self:SetCVar("nameplateMotion", val)
-				                end,
-				                get = function(info) return self:GetCVar("nameplateMotion") end
-				            },
-				            verticalOverlap = {
-				                type = "range",
-				                isPercent = false,
-				                name = "Vertical Overlap",
-				                desc = "",
-				                min = 0.3,
-				                max = 1.3,
-				                step = 0.1,
-				                order = 3,
-				                disabled = function(info) return  not self:GetCVar("nameplateMotion") end,
-				                set = function(info,val)
-				                    SetCVar("nameplateOverlapV", val)
-				                end,
-				                get = function(info) return tonumber(GetCVar("nameplateOverlapV")) end
-				            },
-				            horizontalOverlap = {
-				                type = "range",
-				                isPercent = false,
-				                name = "Horizontal Overlap",
-				                desc = "",
-				                min = 0.3,
-				                max = 1.3,
-				                step = 0.1,
-				                order = 4,
-				                disabled = function(info) return  not self:GetCVar("nameplateMotion") end,
-				                set = function(info,val)
-				                    SetCVar("nameplateOverlapH", val)
-				                end,
-				                get = function(info) return tonumber(GetCVar("nameplateOverlapH")) end
-				            },
-				        },
-				    },
-				    frame = {
+					frame = {
 				        name = "Frame Options",
 				        type = "group",
 				        inline = true,
-				        order = 20,
+				        order = 10,
 				        
 				        args = {
 				            sticky = {
@@ -638,6 +618,99 @@ function JokPlates:SetupOptions()
 				            },
 				        },
 				    },
+					overlap = {
+				        name = "Overlap Options",
+				        type = "group",
+				        inline = true,
+				        order = 20,
+				        
+				        args = {
+				            stacking = {
+				                type = "select",
+				                name = "Nameplate Motion Type",
+				                style = "dropdown",
+				                values = {
+				                	[0] = "Overlaping Nameplate", -- 0
+				                	[1] = "Stacking Nameplate", -- 1	                	
+
+				            	},
+				                order = 1,
+				                set = function(info,val)				                    
+				                    SetCVar("nameplateMotion", val)		
+				                end,
+				                get = function(info) 
+				                	return tonumber(GetCVar("nameplateMotion"))
+				            	end
+				            },
+				            verticalOverlap = {
+				                type = "range",
+				                isPercent = false,
+				                name = "Vertical Overlap",
+				                desc = "",
+				                min = 0.3,
+				                max = 1.3,
+				                step = 0.1,
+				                order = 3,
+				                disabled = function(info) return  not self:GetCVar("nameplateMotion") end,
+				                set = function(info,val)
+				                    SetCVar("nameplateOverlapV", val)
+				                end,
+				                get = function(info) return tonumber(GetCVar("nameplateOverlapV")) end
+				            },
+				            horizontalOverlap = {
+				                type = "range",
+				                isPercent = false,
+				                name = "Horizontal Overlap",
+				                desc = "",
+				                min = 0.3,
+				                max = 1.3,
+				                step = 0.1,
+				                order = 4,
+				                disabled = function(info) return  not self:GetCVar("nameplateMotion") end,
+				                set = function(info,val)
+				                    SetCVar("nameplateOverlapH", val)
+				                end,
+				                get = function(info) return tonumber(GetCVar("nameplateOverlapH")) end
+				            },
+				        },
+				    },				    
+				    alpha = {
+				        name = "Alpha Options",
+				        type = "group",
+				        inline = true,
+				        order = 30,
+				        
+				        args = {
+				            nameplateAlpha = {
+				                type = "range",
+				                isPercent = false,
+				                name = "Nameplate Alpha",
+				                desc = "",
+				                min = 0,
+				                max = 1,
+				                step = 0.05,
+				                order = 1,
+				                set = function(info,val)
+				                    SetCVar("nameplateMinAlpha", val)
+				                end,
+				                get = function(info) return tonumber(GetCVar("nameplateMinAlpha")) end
+				            },
+				            personalAlpha = {
+				                type = "range",
+				                isPercent = false,
+				                name = "Personal Resource Alpha",
+				                desc = "",
+				                min = 0,
+				                max = 1,
+				                step = 0.05,
+				                order = 1,
+				                set = function(info,val)
+				                    SetCVar("nameplateSelfAlpha", val)
+				                end,
+				                get = function(info) return tonumber(GetCVar("nameplateSelfAlpha")) end
+				            },
+				        },
+				    },
 				    visibility = {
 				        name = "Visibility Options",
 				        type = "group",
@@ -645,36 +718,106 @@ function JokPlates:SetupOptions()
 				        order = 40,
 				        
 				        args = {
-				            enemytotem = {
-				                type = "toggle",
-				                name = "Show Enemy Totems",
-				                desc = "",
-				                order = 1,
-				                set = function(info,val) 
-				                    self:SetCVar("nameplateShowEnemyTotems", val)
-				                end,
-				                get = function(info) return self:GetCVar("nameplateShowEnemyTotems") end
-				            },
-				            enemypets = {
-				                type = "toggle",
-				                name = "Show Enemy Pets",
-				                desc = "",
-				                order = 1,
-				                set = function(info,val) 
-				                    self:SetCVar("nameplateShowEnemyPets", val)
-				                end,
-				                get = function(info) return self:GetCVar("nameplateShowEnemyPets") end
-				            },
-				            enemyguardian = {
-				                type = "toggle",
-				                name = "Show Enemy Guardians",
-				                desc = "",
-				                order = 1,
-				                set = function(info,val) 
-				                    self:SetCVar("nameplateShowEnemyGuardians", val)
-				                end,
-				                get = function(info) return self:GetCVar("nameplateShowEnemyGuardians") end
-				            },
+				        	enemy = {
+						        name = "Enemy Units",
+						        type = "group",
+						        inline = true,
+						        order = 1,
+						        
+						        args = {
+				            
+						            enemytotem = {
+						                type = "toggle",
+						                name = "Show Totems",
+						                desc = "",
+						                order = 1,
+						                set = function(info,val) 
+						                    self:SetCVar("nameplateShowEnemyTotems", val)
+						                end,
+						                get = function(info) return self:GetCVar("nameplateShowEnemyTotems") end
+						            },
+						            enemypets = {
+						                type = "toggle",
+						                name = "Show Pets",
+						                desc = "",
+						                order = 2,
+						                set = function(info,val) 
+						                    self:SetCVar("nameplateShowEnemyPets", val)
+						                end,
+						                get = function(info) return self:GetCVar("nameplateShowEnemyPets") end
+						            },
+						            enemyguardian = {
+						                type = "toggle",
+						                name = "Show Guardians",
+						                desc = "",
+						                order = 3,
+						                set = function(info,val) 
+						                    self:SetCVar("nameplateShowEnemyGuardians", val)
+						                end,
+						                get = function(info) return self:GetCVar("nameplateShowEnemyGuardians") end
+						            },
+						            enemyminus = {
+						                type = "toggle",
+						                name = "Show Minus",
+						                desc = "",
+						                order = 4,
+						                set = function(info,val) 
+						                    self:SetCVar("nameplateShowEnemyMinus", val)
+						                end,
+						                get = function(info) return self:GetCVar("nameplateShowEnemyMinus") end
+						            },
+						        },
+						    },
+						    friendly = {
+						        name = "Friendly Units",
+						        type = "group",
+						        inline = true,
+						        order = 2,
+						        
+						        args = {
+				            
+						            friendlytotem = {
+						                type = "toggle",
+						                name = "Show Totems",
+						                desc = "",
+						                order = 1,
+						                set = function(info,val) 
+						                    self:SetCVar("nameplateShowFriendlyTotems", val)
+						                end,
+						                get = function(info) return self:GetCVar("nameplateShowFriendlyTotems") end
+						            },
+						            friendlypets = {
+						                type = "toggle",
+						                name = "Show Pets",
+						                desc = "",
+						                order = 2,
+						                set = function(info,val) 
+						                    self:SetCVar("nameplateShowFriendlyPets", val)
+						                end,
+						                get = function(info) return self:GetCVar("nameplateShowFriendlyPets") end
+						            },
+						            friendlyguardian = {
+						                type = "toggle",
+						                name = "Show Guardians",
+						                desc = "",
+						                order = 3,
+						                set = function(info,val) 
+						                    self:SetCVar("nameplateShowFriendlyGuardians", val)
+						                end,
+						                get = function(info) return self:GetCVar("nameplateShowFriendlyGuardians") end
+						            },
+						            friendlynpcs = {
+						                type = "toggle",
+						                name = "Show NPCs",
+						                desc = "",
+						                order = 4,
+						                set = function(info,val) 
+						                    self:SetCVar("nameplateShowFriendlyNPCs", val)
+						                end,
+						                get = function(info) return self:GetCVar("nameplateShowFriendlyNPCs") end
+						            },
+						        },
+						    },
 				        },
 				    },
 				},

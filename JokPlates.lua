@@ -12,7 +12,7 @@ local _, class = UnitClass("player")
 
 local glowType = "Standard"
 
-local statusBar = "Interface\\AddOns\\JokPlates\\media\\UI-StatusBar"
+local statusBar = "Interface\\AddOns\\JokPlates\\media\\UI-StatusBarBlizzard"
 
 local ccList
 local interrupts
@@ -62,7 +62,12 @@ function JokPlates:OnInitialize()
     iconList = JokPlatesFrameMixin.iconList
     PowerPrediction = JokPlatesFrameMixin.PowerPrediction
 
+    --C_Timer.After (0.1, function() self:SetNameplateSizes)
+
 	self:SetupOptions()
+    self:ShutdownInterfaceOptionsPanel()
+
+    InterfaceOptionsNamesPanelUnitNameplatesMakeLarger.setFunc = function() end
 
     for k, v in ipairs(ccList) do
         priorityList[v] = k
@@ -915,15 +920,7 @@ end
 -------------------------------------------------------------------------------
 -- SKIN
 -------------------------------------------------------------------------------
-
-function JokPlates:PLAYER_ENTERING_WORLD()
-
-   -- DefaultCompactNamePlatePlayerFrameSetUpOptions.healthBarHeight = JokPlates.db.profile.personalManaHeight
-
-    -- Remove Larger Nameplates Function (thx Plater)
-    InterfaceOptionsNamesPanelUnitNameplatesMakeLarger:Disable()
-    InterfaceOptionsNamesPanelUnitNameplatesMakeLarger.setFunc = function() end
-
+function JokPlates:PLAYER_ENTERING_WORLD()   
     -- Enemy Nameplates
     C_NamePlate.SetNamePlateEnemySize(self.settings.healthWidth, 40)
 
@@ -937,6 +934,7 @@ function JokPlates:PLAYER_ENTERING_WORLD()
 
     -- Class Nameplate Mana Bar
     ClassNameplateManaBarFrame:SetStatusBarTexture(statusBar)
+    --print(ClassNameplateManaBarFrame.Texture:GetTexture())
 
     if ( not ClassNameplateManaBarFrame.text ) then
         ClassNameplateManaBarFrame.text = ClassNameplateManaBarFrame:CreateFontString("$parent.ResourceText", "OVERLAY")   
@@ -954,6 +952,7 @@ function JokPlates:NAME_PLATE_CREATED(_, namePlate)
     frame.npcID = nil
     frame.unit = nil
     frame.displayedUnit = nil
+    frame.unitGUID = nil
 
     frame.healthBar:SetStatusBarTexture(statusBar)
     frame.selectionHighlight:SetTexture(statusBar)
@@ -969,15 +968,24 @@ function JokPlates:NAME_PLATE_CREATED(_, namePlate)
 	function frame.BuffFrame:UpdateAnchor()
 		if not frame.displayedUnit then return end  
 
+        local offset = 0
+
+        local isTarget = UnitIsUnit(frame.displayedUnit, "target");
+        local targetMode = GetCVarBool("nameplateResourceOnTarget");
+
+        if targetMode and isTarget then
+            offset = 18
+        end
+
 		if UnitIsUnit(frame.displayedUnit, "player") then --player plate
             --self:ClearAllPoints()
 			self:SetPoint("BOTTOM", self:GetParent().healthBar, "TOP", 0, 3);
 		elseif not frame.healthBar:IsShown() then -- no healthbar
-			self:SetPoint("BOTTOM", frame.name, "TOP", 0, 2);
+			self:SetPoint("BOTTOM", frame.name, "TOP", 0, 2+offset);
 		elseif frame.healthBar:IsShown() and frame.name:IsShown() then -- healthbar
-			self:SetPoint("BOTTOM", frame.name, "TOP", 0, 3);
+			self:SetPoint("BOTTOM", frame.name, "TOP", 0, 3+offset);
         elseif frame.healthBar:IsShown() then
-            self:SetPoint("BOTTOM", self:GetParent().healthBar, "TOP", 0, 4);
+            self:SetPoint("BOTTOM", self:GetParent().healthBar, "TOP", 0, 4+offset);
 		end
 	end
 
@@ -1125,6 +1133,7 @@ end
 
 function JokPlates:UNIT_AURA(_, unit)
     if not unit:find("nameplate") then return end
+
     local namePlate = C_NamePlate.GetNamePlateForUnit(unit)
     if not namePlate then return end
     local frame = namePlate.UnitFrame

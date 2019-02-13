@@ -629,6 +629,7 @@ function JokPlates:SetupOptions()
 				                type = "select",
 				                name = "Nameplate Motion Type",
 				                style = "dropdown",
+				                width = "double",
 				                values = {
 				                	[0] = "Overlaping Nameplate", -- 0
 				                	[1] = "Stacking Nameplate", -- 1	                	

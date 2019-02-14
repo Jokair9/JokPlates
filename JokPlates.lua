@@ -12,7 +12,7 @@ local _, class = UnitClass("player")
 
 local glowType = "Standard"
 
-local statusBar = "Interface\\AddOns\\JokPlates\\media\\UI-StatusBar"
+local statusBar = "Interface\\AddOns\\JokPlates\\media\\UI-StatusBarBlizzard"
 
 local ccList
 local interrupts
@@ -62,6 +62,8 @@ function JokPlates:OnInitialize()
     iconList = JokPlatesFrameMixin.iconList
     PowerPrediction = JokPlatesFrameMixin.PowerPrediction
 
+    --C_Timer.After (0.1, function() self:SetNameplateSizes)
+
 	self:SetupOptions()
     self:ShutdownInterfaceOptionsPanel()
 
@@ -82,13 +84,16 @@ function JokPlates:OnEnable()
     self:RegisterEvent("NAME_PLATE_CREATED")
     self:RegisterEvent("NAME_PLATE_UNIT_ADDED")
     self:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
+    self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
     self:RegisterEvent('UPDATE_MOUSEOVER_UNIT')
-    self:RegisterEvent('COMBAT_LOG_EVENT_UNFILTERED')
-    self:RegisterEvent('UNIT_FACTION')
+    self:RegisterEvent('UNIT_HEALTH_FREQUENT')
+    self:RegisterEvent('UNIT_AURA')
 
+    self:SecureHook('CompactUnitFrame_UpdateName')
+    self:SecureHook('CompactUnitFrame_UpdateHealthColor')
     self:SecureHook('ClassNameplateManaBar_OnUpdate')
-    self:SecureHook('DefaultCompactNamePlateFrameSetup')
-    self:SecureHook('DefaultCompactNamePlateFrameAnchorInternal')
+    self:SecureHook('DefaultCompactNamePlateFrameSetup') 
+    self:SecureHook('DefaultCompactNamePlateFrameAnchorInternal')   
 
     self:SecureHook(NamePlateDriverFrame, 'SetupClassNameplateBars', 'SetupClassNameplateBar')
     self:SecureHook(_G['NamePlateDriverFrame'], 'UpdateNamePlateOptions', 'NamePlateDriverFrame_UpdateNamePlateOptions')
@@ -249,6 +254,12 @@ function JokPlates:Abbrev(str,length)
     return ""
 end
 
+function JokPlates:ForceUpdate()
+    for i, frame in ipairs(C_NamePlate.GetNamePlates(issecure())) do
+        CompactUnitFrame_UpdateAll(frame.UnitFrame)
+    end
+end
+
 function JokPlates:IsOnThreatListWithPlayer(unit)
     local _, threatStatus = UnitDetailedThreatSituation("player", unit)
     return threatStatus ~= nil
@@ -368,6 +379,25 @@ function JokPlates:AddHealthbarText(frame)
     end
 end
 
+function JokPlates:UpdateHealth(frame, unit)
+    if ( not frame.healthBar.LeftText or not frame.healthBar.RightText ) then return end
+
+    local health = UnitHealth(unit)
+    local maxHealth = UnitHealthMax(unit)
+    local perc = math.floor(100 * (health/maxHealth))
+
+    frame.healthBar.LeftText:Show()
+    frame.healthBar.RightText:Show()
+    
+    if ( health >= 1 ) then
+        frame.healthBar.LeftText:SetText(perc.."%")
+        frame.healthBar.RightText:SetText(self:FormatValue(health))
+    else
+        frame.healthBar.LeftText:SetText("")
+        frame.healthBar.RightText:SetText("")
+    end
+end
+
 function JokPlates:GlowNameplate(frame, show)
     if show then
         if glowType == "AutoCast" then
@@ -388,6 +418,35 @@ function JokPlates:GlowNameplate(frame, show)
         end
         frame.isGlowing = false
     end 
+end
+
+function JokPlates:DrawLine(frame, rgb, size, yOffset, show)
+    if show then  
+        frame.line:SetStartPoint("CENTER", UIParent, 0, -15)
+        frame.line:SetEndPoint("CENTER", frame, 0, yOffset)
+        frame.line:SetThickness(size)
+        frame.line:SetColorTexture(unpack(rgb))
+
+        frame.line.active = true
+        frame.line:Show()
+    else
+        frame.line.active = false
+        frame.line:Hide()
+    end
+end
+
+function JokPlates:DrawCircle(frame, rgb, size, yOffset, show)
+    if show then
+        frame.circle:SetSize(size, size)
+        frame.circle:SetPoint("CENTER", frame, "CENTER", 0, yOffset)
+        frame.circle:SetTexture("Interface\\AddOns\\JokPlates\\media\\Circle")
+        frame.circle:SetVertexColor(unpack(rgb))
+        frame.circle.active = true
+        frame.circle:Show()
+    else
+        frame.circle.active = false
+        frame.circle:Hide()
+    end
 end
 
 function JokPlates:SetIcon(frame, size, show)
@@ -431,6 +490,8 @@ function JokPlates_UpdateBuffs(self, unit, filter, showAll)
     else
         self:SetScale(JokPlates.db.profile.buffFrameScale)
     end
+
+	local OriAuraSize = true
 	
 	self.unit = unit;
 	self.filter = filter;
@@ -520,7 +581,7 @@ end
 function JokPlates:UpdateCastbar(frame)
 
     if ( frame:IsForbidden() ) then return end
-    frame.castBar.Text:SetFont(SystemFont_Shadow_Small:GetFont(), 15, "OUTLINE")
+    
     -- Castbar Timer.
 
     if ( not frame.castBar.CastTime ) then
@@ -533,18 +594,22 @@ function JokPlates:UpdateCastbar(frame)
 
     frame.castBar.update = 0.1
 
-    frame.castBar.Icon:SetShown(true);
-
     -- Update Castbar.
 
     local lastUpdate = 0
 
     frame.castBar:HookScript("OnUpdate", function(self, elapsed)
-        if not self.casting == nil or not self.channeling == nil then return end
-
         lastUpdate = lastUpdate + elapsed
         if lastUpdate >= frame.castBar.update then
             lastUpdate = 0
+
+            if ( frame.unit ) then
+                if ( frame.castBar.casting ) then
+                    notInterruptible = select(8, UnitCastingInfo(frame.displayedUnit))
+                else
+                    notInterruptible = select(7, UnitChannelInfo(frame.displayedUnit))
+                end
+            end
 
             local name = UnitCastingInfo(frame.displayedUnit)
             if not name then                    
@@ -566,101 +631,23 @@ function JokPlates:UpdateCastbar(frame)
         end
     end)
 
+    frame:HookScript("OnShow", function(self)
+        if not frame.castBar.Icon:IsShown() then
+            frame.castBar.Icon:Show()
+            if ( frame.castBar.casting ) then
+                frame.castBar.Icon:SetTexture(select(3, UnitCastingInfo(frame.displayedUnit)))
+            else
+                frame.castBar.Icon:SetTexture(select(3, UnitChannelInfo(frame.displayedUnit)))
+            end
+        end
+
+        lastUpdate = 0
+    end)
+
     frame.castBar.BorderShield:SetTexture(nil)
 end
 
--------------------------------------------------------------------------------
--- SKIN
--------------------------------------------------------------------------------
-
-function JokPlates:PLAYER_ENTERING_WORLD()   
-    -- Enemy Nameplates
-    C_NamePlate.SetNamePlateEnemySize(self.settings.healthWidth, 40)
-
-    -- Friendly Nameplates
-    C_NamePlate.SetNamePlateFriendlySize(90, 0.1)
-    C_NamePlate.SetNamePlateFriendlyClickThrough(true)
-
-    -- Personal Nameplate
-    C_NamePlate.SetNamePlateSelfSize(self.settings.personalWidth, 0.1)
-    C_NamePlate.SetNamePlateSelfClickThrough(true)
-
-    -- Class Nameplate Mana Bar
-   -- ClassNameplateManaBarFrame:SetStatusBarTexture(statusBar)
-    --print(ClassNameplateManaBarFrame.Texture:GetTexture())
-
-    if ( not ClassNameplateManaBarFrame.text ) then
-        ClassNameplateManaBarFrame.text = ClassNameplateManaBarFrame:CreateFontString("$parent.ResourceText", "OVERLAY")   
-        ClassNameplateManaBarFrame.text:SetFont("FONTS\\FRIZQT__.TTF", 12, "OUTLINE")
-        ClassNameplateManaBarFrame.text:SetPoint("CENTER", ClassNameplateManaBarFrame)
-    end
-end
-
--- NAMEPLATE 
-
-function JokPlates:UpdateName(frame)
-    local name, server =  UnitName(frame.unit)
-    frame.name:SetText(name)
-
-    if server then
-        frame.name:SetText(name.."-"..server)
-    end
-
-    frame.name:SetFont("Fonts\\FRIZQT__.TTF", 10)
-
-    -- Class Player Name
-    if ( UnitIsPlayer(frame.displayedUnit) ) then
-        local _, class = UnitClass(frame.unit)
-        local r, g, b = GetClassColor(class)
-        frame.name:SetVertexColor(r, g, b);
-    end
-end
-
-function JokPlates:UpdateHealth(frame)
-    local health = UnitHealth(frame.displayedUnit)
-
-    frame.healthBar:SetValue(health)
-end
-
-function JokPlates:UpdateMaxHealth(frame)
-    local maxHealth = UnitHealthMax(frame.displayedUnit)
-
-    frame.healthBar:SetMinMaxValues(0, maxHealth)
-end
-
-function JokPlates:UpdateHealthText(frame)
-    if not UnitIsUnit(frame.displayedUnit, "player") then return end
-
-    local health = UnitHealth(frame.displayedUnit)
-    local maxHealth = UnitHealthMax(frame.displayedUnit)
-
-    local perc = math.floor(100 * (health/maxHealth))
-
-    if ( not frame.healthBar.LeftText or not frame.healthBar.RightText ) then return end    
-
-    frame.healthBar.LeftText:Show()
-    frame.healthBar.RightText:Show()
-    
-    if ( health >= 1 ) then
-        frame.healthBar.LeftText:SetText(perc.."%")
-        frame.healthBar.RightText:SetText(self:FormatValue(health))
-    else
-        frame.healthBar.LeftText:SetText("")
-        frame.healthBar.RightText:SetText("")
-    end
-end
-
-function JokPlates:UpdateSize(frame)
-    if UnitIsPlayer(frame.unit) and not UnitCanAttack("player", frame.unit) and not UnitIsUnit("player", frame.unit) then
-        frame.healthBar:SetHeight(5)
-        frame.castBar:SetHeight(7)
-    elseif not UnitIsUnit("player", frame.unit) then
-        frame.healthBar:SetHeight(JokPlates.db.profile.healthHeight)
-        frame.castBar:SetHeight(9)
-    end
-end
-
-function JokPlates:UpdateColor(frame)
+function JokPlates:ThreatColor(frame)
     local r, g, b
 
     if ( not UnitIsConnected(frame.unit) ) then
@@ -685,7 +672,7 @@ function JokPlates:UpdateColor(frame)
             elseif ( CompactUnitFrame_IsTapDenied(frame) ) then
                 r, g, b = 0.5, 0.5, 0.5
             elseif ( colorList[frame.npcID] ) then
-                r, g, b = JokPlates:DangerousColor(frame)
+				r, g, b = JokPlates:DangerousColor(frame)
             elseif ( frame.optionTable.colorHealthBySelection ) then
                 if ( frame.optionTable.considerSelectionInCombatAsHostile and self:IsOnThreatListWithPlayer(frame.displayedUnit) ) then    
                     local target = frame.displayedUnit.."target"
@@ -725,17 +712,7 @@ function JokPlates:UpdateColor(frame)
     end
 end
 
-function JokPlates:UpdateSelectionHighlight(frame)
-    local unit = frame.unit
-
-    if UnitIsUnit(unit, "target") and not UnitIsUnit(unit, "player") then
-        frame.selectionHighlight:Show()
-        frame.healthBar.border:SetVertexColor(frame.optionTable.selectedBorderColor:GetRGBA());
-    else
-        frame.selectionHighlight:Hide()
-        frame.healthBar.border:SetVertexColor(frame.optionTable.defaultBorderColor:GetRGBA());
-    end
-end
+-----------------------------------------
 
 function JokPlates:ApplyCC(frame)
     local spellId, icon, start, expire
@@ -940,170 +917,56 @@ function JokPlates:UpdateBuffs(frame)
     end
 end
 
-function JokPlates:UpdateHealPrediction(frame)
-    local ABSORB_GLOW_ALPHA = 0.6;
-    local ABSORB_GLOW_OFFSET = -3;
+-------------------------------------------------------------------------------
+-- SKIN
+-------------------------------------------------------------------------------
+function JokPlates:PLAYER_ENTERING_WORLD()   
+    -- Enemy Nameplates
+    C_NamePlate.SetNamePlateEnemySize(self.settings.healthWidth, 40)
 
-    CompactUnitFrame_UpdateHealPrediction(frame)
+    -- Friendly Nameplates
+    C_NamePlate.SetNamePlateFriendlySize(90, 0.1)
+    C_NamePlate.SetNamePlateFriendlyClickThrough(true)
 
-    local absorbBar = frame.totalAbsorb;
-    if ( not absorbBar or absorbBar:IsForbidden()  ) then return end
-    
-    local absorbOverlay = frame.totalAbsorbOverlay;
-    if ( not absorbOverlay or absorbOverlay:IsForbidden() ) then return end
-    
-    local healthBar = frame.healthBar;
-    if ( not healthBar or healthBar:IsForbidden() ) then return end
+    -- Personal Nameplate
+    C_NamePlate.SetNamePlateSelfSize(self.settings.personalWidth, 0.1)
+    C_NamePlate.SetNamePlateSelfClickThrough(true)
 
-    local _, maxHealth = healthBar:GetMinMaxValues();
-    if ( maxHealth <= 0 ) then return end
-    
-    local totalAbsorb = UnitGetTotalAbsorbs(frame.displayedUnit) or 0;
-    if( totalAbsorb > maxHealth ) then
-        totalAbsorb = maxHealth;
-    end
+    -- Class Nameplate Mana Bar
+    ClassNameplateManaBarFrame:SetStatusBarTexture(statusBar)
+    --print(ClassNameplateManaBarFrame.Texture:GetTexture())
 
-    absorbOverlay:SetParent(healthBar);
-    absorbOverlay:SetDrawLayer("OVERLAY", 2)
-    absorbOverlay:ClearAllPoints();     --we'll be attaching the overlay on heal prediction update.
-    
-    local absorbGlow = frame.overAbsorbGlow;
-    if ( absorbGlow and not absorbGlow:IsForbidden() ) then
-        absorbGlow:ClearAllPoints();
-        absorbGlow:SetPoint("TOPLEFT", absorbOverlay, "TOPLEFT", ABSORB_GLOW_OFFSET, 0);
-        absorbGlow:SetPoint("BOTTOMLEFT", absorbOverlay, "BOTTOMLEFT", ABSORB_GLOW_OFFSET, 0);
-        absorbGlow:SetWidth(8);
-        absorbGlow:SetDrawLayer("OVERLAY", 2)
-    end
-    
-    if( totalAbsorb > 0 ) then  --show overlay when there's a positive absorb amount
-        if ( absorbBar:IsShown() ) then     --If absorb bar is shown, attach absorb overlay to it; otherwise, attach to health bar.
-            absorbOverlay:SetPoint("TOPRIGHT", absorbBar, "TOPRIGHT", 0, 0);
-            absorbOverlay:SetPoint("BOTTOMRIGHT", absorbBar, "BOTTOMRIGHT", 0, 0);
-        else
-            absorbOverlay:SetPoint("TOPRIGHT", healthBar, "TOPRIGHT", 0, 0);
-            absorbOverlay:SetPoint("BOTTOMRIGHT", healthBar, "BOTTOMRIGHT", 0, 0);                  
-        end
-
-        local totalWidth, totalHeight = healthBar:GetSize();            
-        local barSize = totalAbsorb / maxHealth * totalWidth;
-        
-        absorbOverlay:SetWidth( barSize );
-        absorbOverlay:SetTexCoord(0, barSize / absorbOverlay.tileSize, 0, totalHeight / absorbOverlay.tileSize);
-        absorbOverlay:Show();
-        absorbOverlay:SetDrawLayer("OVERLAY", 2)
+    if ( not ClassNameplateManaBarFrame.text ) then
+        ClassNameplateManaBarFrame.text = ClassNameplateManaBarFrame:CreateFontString("$parent.ResourceText", "OVERLAY")   
+        ClassNameplateManaBarFrame.text:SetFont("FONTS\\FRIZQT__.TTF", 12, "OUTLINE")
+        ClassNameplateManaBarFrame.text:SetPoint("CENTER", ClassNameplateManaBarFrame)
     end
 end
-
-function JokPlates:SetUnit(frame, unit)
-    frame.unit = unit
-    frame.displayedUnit = unit -- For vehicles
-    frame.inVehicle = false
-
-    if (unit) then
-        frame.unitGUID = UnitGUID(unit)
-        frame.npcID = JokPlates:GetNpcID(unit)
-        self:RegisterNamePlateEvents(frame)
-    else
-        self:UnregisterNamePlateEvents(frame)
-    end
-end
-
-function JokPlates:RefreshNameplate(frame)
-    self:UpdateName(frame)
-    self:UpdateHealth(frame)
-    self:UpdateColor(frame)
-    self:UpdateSize(frame)
-    self:UpdateSelectionHighlight(frame)
-    self:UpdateCC(frame)
-    self:UpdateBuffs(frame)
-    self:UpdateHealthText(frame)
-    self:UpdateHealPrediction(frame)
-end
-
-function JokPlates:UpdateAllNameplates()
-    for i, namePlate in ipairs(C_NamePlate.GetNamePlates()) do
-        local frame = namePlate.UnitFrame
-        self:RefreshNameplate(frame)
-    end 
-end
-
-function JokPlates_NamePlate_OnEvent(frame, event, ...)
-    local arg1 = ...
-    local self = JokPlates
-
-    if (event == "PLAYER_TARGET_CHANGED") then
-        self:UpdateSelectionHighlight(frame)
-    elseif (arg1 == frame.unit or arg1 == self.displayedUnit) then
-        if ( event == "UNIT_HEALTH" or event == "UNIT_HEALTH_FREQUENT" ) then
-            self:UpdateHealth(frame)
-            self:UpdateHealthText(frame)
-            self:UpdateHealPrediction(frame)
-        elseif (event == "UNIT_MAXHEALTH") then
-            self:UpdateMaxHealth(frame)
-            self:UpdateHealth(frame)
-            self:UpdateHealthText(frame)
-            self:UpdateHealPrediction(frame)
-        elseif (event == "UNIT_THREAT_LIST_UPDATE") then 
-            self:UpdateColor(frame)
-        elseif (event == "UNIT_NAME_UPDATE") then
-            self:UpdateName(frame)
-        elseif ( event == "UNIT_HEAL_PREDICTION" ) then
-           self:UpdateHealPrediction(frame)
-        elseif ( event == "UNIT_ABSORB_AMOUNT_CHANGED" ) then
-            self:UpdateHealPrediction(frame)
-        elseif ( event == "UNIT_HEAL_ABSORB_AMOUNT_CHANGED" ) then
-            self:UpdateHealPrediction(frame)
-        elseif ( event == "UNIT_AURA") then
-            self:UpdateCC(frame)
-            self:UpdateBuffs(frame)
-        end
-    end
-end
-
-function JokPlates:RegisterNamePlateEvents(frame)
-    local unit = frame.unit
-
-    frame:RegisterEvent("PLAYER_TARGET_CHANGED");
-    frame:RegisterUnitEvent("UNIT_HEALTH_FREQUENT", unit);
-    frame:RegisterUnitEvent("UNIT_HEALTH", unit);
-    frame:RegisterUnitEvent("UNIT_MAXHEALTH", unit);
-    frame:RegisterUnitEvent("UNIT_THREAT_LIST_UPDATE", unit)
-    frame:RegisterUnitEvent("UNIT_NAME_UPDATE", unit)
-    frame:RegisterUnitEvent("UNIT_HEAL_PREDICTION", unit)  
-    frame:RegisterUnitEvent("UNIT_ABSORB_AMOUNT_CHANGED", unit);
-    frame:RegisterUnitEvent("UNIT_HEAL_ABSORB_AMOUNT_CHANGED", unit);
-    frame:RegisterUnitEvent("UNIT_AURA", unit);
-
-    frame:SetScript("OnEvent", JokPlates_NamePlate_OnEvent)
-end
-
-function JokPlates:UnregisterNamePlateEvents(frame)
-    frame:UnregisterAllEvents()
-    frame:SetScript("OnEvent", nil)
-end
-
--- EVENTS
 
 function JokPlates:NAME_PLATE_CREATED(_, namePlate)
-    local frame = namePlate.UnitFrame
+	local frame = namePlate.UnitFrame
     frame.isNameplate = true
 
     if ( frame:IsForbidden() ) then return end
 
-    -- frame.healthBar:SetStatusBarTexture(statusBar)
-    -- frame.selectionHighlight:SetTexture(statusBar)
-    -- frame.castBar:SetStatusBarTexture(statusBar)
+    frame.npcID = nil
+    frame.unit = nil
+    frame.displayedUnit = nil
+    frame.unitGUID = nil
+
+    frame.healthBar:SetStatusBarTexture(statusBar)
+    frame.selectionHighlight:SetTexture(statusBar)
+    frame.castBar:SetStatusBarTexture(statusBar)
 
     self:UpdateCastbar(frame)
     self:AddHealthbarText(namePlate)
 
-    -- Hook UpdateBuffs
-    frame.BuffFrame.UpdateBuffs = JokPlates_UpdateBuffs
+	-- Hook UpdateBuffs
+	frame.BuffFrame.UpdateBuffs = JokPlates_UpdateBuffs
 
-    -- Hook UpdateAnchor
-    function frame.BuffFrame:UpdateAnchor()
-        if not frame.displayedUnit then return end  
+	-- Hook UpdateAnchor
+	function frame.BuffFrame:UpdateAnchor()
+		if not frame.displayedUnit then return end  
 
         local offset = 0
 
@@ -1114,17 +977,20 @@ function JokPlates:NAME_PLATE_CREATED(_, namePlate)
             offset = 18
         end
 
-        if UnitIsUnit(frame.displayedUnit, "player") then --player plate
+		if UnitIsUnit(frame.displayedUnit, "player") then --player plate
             --self:ClearAllPoints()
-            self:SetPoint("BOTTOM", self:GetParent().healthBar, "TOP", 0, 3);
-        elseif not frame.healthBar:IsShown() then -- no healthbar
-            self:SetPoint("BOTTOM", frame.name, "TOP", 0, 2+offset);
-        elseif frame.healthBar:IsShown() and frame.name:IsShown() then -- healthbar
-            self:SetPoint("BOTTOM", frame.name, "TOP", 0, 3+offset);
+			self:SetPoint("BOTTOM", self:GetParent().healthBar, "TOP", 0, 3);
+		elseif not frame.healthBar:IsShown() then -- no healthbar
+			self:SetPoint("BOTTOM", frame.name, "TOP", 0, 2+offset);
+		elseif frame.healthBar:IsShown() and frame.name:IsShown() then -- healthbar
+			self:SetPoint("BOTTOM", frame.name, "TOP", 0, 3+offset);
         elseif frame.healthBar:IsShown() then
             self:SetPoint("BOTTOM", self:GetParent().healthBar, "TOP", 0, 4+offset);
-        end
-    end
+		end
+	end
+
+    frame.circle = frame:CreateTexture(nil, "ARTWORK")
+    frame.line = frame:CreateLine(_, "OVERLAY", 7)   
 
     -- ICON
     frame.icon = frame:CreateTexture(nil, "OVERLAY")
@@ -1199,11 +1065,25 @@ function JokPlates:NAME_PLATE_UNIT_ADDED(_, unit)
 
     if ( frame:IsForbidden() ) then return end
 
-    self:SetUnit(frame, unit)
-    self:RefreshNameplate(frame)
+    frame.unit = unit
+    frame.displayedUnit = unit -- For vehicles
+    frame.unitGUID = UnitGUID(unit)
+    frame.npcID = self:GetNpcID(unit)
+
+    if UnitIsPlayer(frame.unit) and not UnitCanAttack("player", frame.unit) and not UnitIsUnit("player", frame.unit) then
+        frame.healthBar:SetHeight(5)
+        frame.castBar:SetHeight(7)
+    elseif not UnitIsUnit("player", frame.unit) then
+        frame.healthBar:SetHeight(JokPlates.db.profile.healthHeight)
+        frame.castBar:SetHeight(9)
+    end
 
     frame.RaidTargetFrame:SetScale(1.2)
     frame.RaidTargetFrame:SetPoint("RIGHT", frame.healthBar, "LEFT", -7, 0)
+
+    self:ThreatColor(frame)
+    self:UpdateBuffs(frame)
+    self:UpdateCC(frame)
 
     -- Glow Nameplate
     if glowList[frame.npcID] then
@@ -1218,6 +1098,7 @@ function JokPlates:NAME_PLATE_UNIT_ADDED(_, unit)
     if UnitIsUnit(frame.displayedUnit, "player") then
         frame.healthBar:SetHeight(self.settings.personalHealthHeight)
         ClassNameplateManaBarFrame:SetSize(JokPlates.db.profile.personalWidth, JokPlates.db.profile.personalManaHeight)
+        self:UpdateHealth(frame, "player")
         frame.BuffFrame2:SetScale(1.2)
     end
 end
@@ -1228,8 +1109,6 @@ function JokPlates:NAME_PLATE_UNIT_REMOVED(_, unit)
 
     if ( frame:IsForbidden() ) then return end
 
-    self:SetUnit(frame, nil)
-
     if frame.icon.active then
         self:SetIcon(frame, 30, false)
     end
@@ -1238,10 +1117,41 @@ function JokPlates:NAME_PLATE_UNIT_REMOVED(_, unit)
         self:GlowNameplate(frame, false)
     end
 
+    if frame.line.active then
+        self:DrawLine(frame, nil, nil, nil, false)
+    end
+
+    if frame.circle.active then
+        self:DrawCircle(frame, nil, nil, nil, false)
+    end
+
     frame.healthBar.LeftText:Hide()
     frame.healthBar.RightText:Hide()
 
     CastingBarFrame_SetUnit(frame.castBar, nil, false, true)
+end
+
+function JokPlates:UNIT_AURA(_, unit)
+    if not unit:find("nameplate") then return end
+
+    local namePlate = C_NamePlate.GetNamePlateForUnit(unit)
+    if not namePlate then return end
+    local frame = namePlate.UnitFrame
+
+    self:UpdateCC(frame)
+    self:UpdateBuffs(frame)
+end
+
+function JokPlates:UNIT_HEALTH_FREQUENT(_, unit)
+    if not UnitIsUnit(unit, "player") then return end
+
+    local namePlate = C_NamePlate.GetNamePlateForUnit('player')
+    if not namePlate then return end
+    local frame = namePlate.UnitFrame
+
+    if ( frame:IsForbidden() ) then return end
+
+    self:UpdateHealth(frame, unit)
 end
 
 function JokPlates:COMBAT_LOG_EVENT_UNFILTERED()
@@ -1276,10 +1186,6 @@ function JokPlates:COMBAT_LOG_EVENT_UNFILTERED()
     end
 end
 
-function JokPlates:UNIT_FACTION()  
-    self:UpdateAllNameplates()
-end
-
 function JokPlates:UPDATE_MOUSEOVER_UNIT()
     local namePlate = C_NamePlate.GetNamePlateForUnit('mouseover')
     if not namePlate then return end
@@ -1305,6 +1211,39 @@ function JokPlates:UPDATE_MOUSEOVER_UNIT()
             frame:SetScript('OnUpdate',nil)
         end
     end)
+end
+
+function JokPlates:CompactUnitFrame_UpdateName(frame)
+    if ( frame:IsForbidden() ) then return end
+    if ( not frame.isNameplate ) then return end
+
+    -- Player Name
+    if ( UnitIsPlayer(frame.displayedUnit) and not UnitIsUnit(frame.displayedUnit, "player") ) then
+        local _, class = UnitClass(frame.unit)
+        local r, g, b = GetClassColor(class)
+        frame.name:SetVertexColor(r, g, b);
+
+        local name = UnitName(frame.unit);
+        frame.name:SetText(name)
+    end
+    
+    -- Arena Number on Nameplates.  
+    if IsActiveBattlefieldArena() and self.settings.arenanumber then 
+        for i=1,3 do 
+            if UnitIsUnit(frame.displayedUnit, "arena"..i) then 
+                frame.name:SetText(i)
+                frame.name:SetTextColor(1,1,0)
+                break 
+            end 
+        end 
+    end
+end
+
+function JokPlates:CompactUnitFrame_UpdateHealthColor(frame)
+    if ( frame:IsForbidden() ) then return end
+    if ( not frame.isNameplate ) then return end
+
+    self:ThreatColor(frame) 
 end
 
 function JokPlates:SetupClassNameplateBar(self, OnTarget, Bar)

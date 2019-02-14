@@ -515,156 +515,6 @@ function JokPlates_UpdateBuffs(self, unit, filter, showAll)
     self:Layout();
 end
 
-function JokPlates:ApplyCC(frame)
-    local spellId, icon, start, expire
-
-    -- Check if an aura was found
-    if frame.aura.spellId then
-        spellId, icon, start, expire = frame.aura.spellId, frame.aura.icon, frame.aura.start, frame.aura.expire
-    end
-
-    -- Check if there's an interrupt lockout
-    if frame.interrupt.spellId then
-        -- Make sure the lockout is still active
-        if frame.interrupt.expire < GetTime() then
-            frame.interrupt.spellId = nil
-        -- Select the greatest priority (aura or interrupt)
-        elseif spellId and priorityList[frame.interrupt.spellId] < priorityList[spellId] or not spellId then
-            spellId, icon, start, expire = frame.interrupt.spellId, frame.interrupt.icon, frame.interrupt.start, frame.interrupt.expire
-        end
-    end
-
-    -- Set up the icon & cooldown
-    if spellId then
-        CooldownFrame_Set(frame.cd, start, expire - start, 1, true)
-        if spellId ~= frame.activeId then
-            frame.activeId = spellId
-            frame.icon:SetTexture(icon)
-        end
-    -- Remove cooldown & reset icon back to class icon
-    elseif frame.activeId then
-        frame.activeId = nil
-        frame.icon:SetTexture(nil)
-        CooldownFrame_Set(frame.cd, 0, 0, 0, true)
-    end
-end
-
-function JokPlates:UpdateCC(frame)
-    if not frame.displayedUnit then return end
-
-    if UnitIsUnit(frame.displayedUnit, "player") then return end
-
-    local priorityAura = {
-        icon = nil,
-        spellId = nil,
-        duration = nil,
-        expires = nil,
-    }
-
-    local duration, icon, expires, spellId, _
-
-    for i = 1, BUFF_MAX_DISPLAY do
-        _, icon, _, _, duration, expires, _, _, _, spellId = UnitAura(frame.displayedUnit, i, "HARMFUL")
-        if not spellId then break end
-
-        if priorityList[spellId] then
-            -- Select the greatest priority aura
-            if not priorityAura.spellId or priorityList[spellId] < priorityList[priorityAura.spellId] then
-                priorityAura.icon = icon
-                priorityAura.spellId = spellId
-                priorityAura.duration = duration
-                priorityAura.expires = expires
-            end
-        end
-    end
-
-    if priorityAura.spellId then
-        frame.cc.aura.spellId = priorityAura.spellId
-        frame.cc.aura.icon = priorityAura.icon
-        frame.cc.aura.start = priorityAura.expires - priorityAura.duration
-        frame.cc.aura.expire = priorityAura.expires
-    else
-        frame.cc.aura.spellId = nil
-    end
-
-    self:ApplyCC(frame.cc)
-end
-
-function JokPlates:UpdateInterrupts()
-    local _, event,_,_,_,_,_, destGUID, _,_,_, spellId = CombatLogGetCurrentEventInfo()
-
-    if not interrupts[spellId] then return end
-
-    if event ~= "SPELL_INTERRUPT" and event ~= "SPELL_CAST_SUCCESS" then return end
-
-    if event == "SPELL_INTERRUPT" then
-        local _, _, icon = GetSpellInfo(spellId)
-        local start = GetTime()
-        local duration = interrupts[spellId]
-
-        for _, namePlate in pairs(C_NamePlate.GetNamePlates(issecure())) do
-            local frame = namePlate.UnitFrame
-            local unit = frame.displayedUnit
-            
-            if not UnitIsUnit(frame.displayedUnit, "player") and UnitIsPlayer(frame.displayedUnit) then 
-                if UnitGUID(unit) == destGUID then
-                    frame.cc.interrupt.spellId = spellId
-                    frame.cc.interrupt.icon = icon
-                    frame.cc.interrupt.start = start
-                    frame.cc.interrupt.expire = start + duration
-
-                    self:ApplyCC(frame.cc)
-
-                    C_Timer.After(duration, function()
-                        self:UpdateCC(frame)
-                    end)
-                end
-            end
-        end
-    end
-end
-
-function JokPlates:UpdateIcon(button, unit, index, filter)
-    local name, icon, count, debuffType, duration, expire, _, canStealOrPurge, _, spellID, _, _, _, nameplateShowAll = UnitAura(unit, index, filter)
-
-    if button.spellID ~= spellID or button.expire ~= expire or button.count ~= count or button.duration ~= duration then
-        CooldownFrame_Set(button.cd, expire - duration, duration, true, true)
-    end
-
-    button.icon:SetTexture(icon)
-    button.expire = expire
-    button.duration = duration
-    button.spellID = spellID
-    button.canStealOrPurge = canStealOrPurge
-    button.nameplateShowAll = nameplateShowAll
-
-    button:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_LEFT");
-        GameTooltip:SetUnitAura(unit, index, filter)
-    end)
-
-    button:SetScript("OnLeave", function(self)
-        GameTooltip:ClearLines()
-        GameTooltip:Hide()
-    end)
-
-    if canStealOrPurge then
-        button.overlay:SetVertexColor(1, 1, 1)
-        button.overlay:Show()
-    else
-        button.overlay:Hide()
-    end
-
-    if count and count > 1 then
-        button.count:SetText(count)
-    else
-        button.count:SetText("")
-    end
-
-    --
-    button:Show()
-end
-
 -----------------------------------------
 
 function JokPlates:UpdateCastbar(frame)
@@ -728,7 +578,7 @@ function JokPlates:PLAYER_ENTERING_WORLD()
     C_NamePlate.SetNamePlateEnemySize(self.settings.healthWidth, 40)
 
     -- Friendly Nameplates
-    C_NamePlate.SetNamePlateFriendlySize(80, 0.1)
+    C_NamePlate.SetNamePlateFriendlySize(90, 0.1)
     C_NamePlate.SetNamePlateFriendlyClickThrough(true)
 
     -- Personal Nameplate
@@ -749,24 +599,11 @@ end
 -- NAMEPLATE 
 
 function JokPlates:UpdateName(frame)
-    if ( not ShouldShowName(frame) ) then
-        frame.name:Hide();
-    else
-        local name = GetUnitName(frame.unit, true);
+    local name, server =  UnitName(frame.unit)
+    frame.name:SetText(name)
 
-        frame.name:SetText(name);
-
-        if ( CompactUnitFrame_IsTapDenied(frame) ) then
-            frame.name:SetVertexColor(0.5, 0.5, 0.5);
-        elseif ( frame.optionTable.colorNameBySelection ) then
-            if ( frame.optionTable.considerSelectionInCombatAsHostile and CompactUnitFrame_IsOnThreatListWithPlayer(frame.displayedUnit) ) then
-                frame.name:SetVertexColor(1.0, 0.0, 0.0);
-            else
-                frame.name:SetVertexColor(UnitSelectionColor(frame.unit, frame.optionTable.colorNameWithExtendedColors));
-            end
-        end
-
-        frame.name:Show();
+    if server then
+        frame.name:SetText(name.."-"..server)
     end
 
     frame.name:SetFont("Fonts\\FRIZQT__.TTF", 10)
@@ -900,6 +737,155 @@ function JokPlates:UpdateSelectionHighlight(frame)
     end
 end
 
+function JokPlates:ApplyCC(frame)
+    local spellId, icon, start, expire
+
+    -- Check if an aura was found
+    if frame.aura.spellId then
+        spellId, icon, start, expire = frame.aura.spellId, frame.aura.icon, frame.aura.start, frame.aura.expire
+    end
+
+    -- Check if there's an interrupt lockout
+    if frame.interrupt.spellId then
+        -- Make sure the lockout is still active
+        if frame.interrupt.expire < GetTime() then
+            frame.interrupt.spellId = nil
+        -- Select the greatest priority (aura or interrupt)
+        elseif spellId and priorityList[frame.interrupt.spellId] < priorityList[spellId] or not spellId then
+            spellId, icon, start, expire = frame.interrupt.spellId, frame.interrupt.icon, frame.interrupt.start, frame.interrupt.expire
+        end
+    end
+
+    -- Set up the icon & cooldown
+    if spellId then
+        CooldownFrame_Set(frame.cd, start, expire - start, 1, true)
+        if spellId ~= frame.activeId then
+            frame.activeId = spellId
+            frame.icon:SetTexture(icon)
+        end
+    -- Remove cooldown & reset icon back to class icon
+    elseif frame.activeId then
+        frame.activeId = nil
+        frame.icon:SetTexture(nil)
+        CooldownFrame_Set(frame.cd, 0, 0, 0, true)
+    end
+end
+
+function JokPlates:UpdateCC(frame)
+    if not frame.displayedUnit then return end
+    if UnitIsUnit(frame.displayedUnit, "player") then return end
+
+    local priorityAura = {
+        icon = nil,
+        spellId = nil,
+        duration = nil,
+        expires = nil,
+    }
+
+    local duration, icon, expires, spellId, _
+
+    for i = 1, BUFF_MAX_DISPLAY do
+        _, icon, _, _, duration, expires, _, _, _, spellId = UnitAura(frame.displayedUnit, i, "HARMFUL")
+        if not spellId then break end
+
+        if priorityList[spellId] then
+            -- Select the greatest priority aura
+            if not priorityAura.spellId or priorityList[spellId] < priorityList[priorityAura.spellId] then
+                priorityAura.icon = icon
+                priorityAura.spellId = spellId
+                priorityAura.duration = duration
+                priorityAura.expires = expires
+            end
+        end
+    end
+
+    if priorityAura.spellId then
+        frame.cc.aura.spellId = priorityAura.spellId
+        frame.cc.aura.icon = priorityAura.icon
+        frame.cc.aura.start = priorityAura.expires - priorityAura.duration
+        frame.cc.aura.expire = priorityAura.expires
+    else
+        frame.cc.aura.spellId = nil
+    end
+
+    self:ApplyCC(frame.cc)
+end
+
+function JokPlates:UpdateInterrupts()
+    local _, event,_,_,_,_,_, destGUID, _,_,_, spellId = CombatLogGetCurrentEventInfo()
+
+    if not interrupts[spellId] then return end
+
+    if event ~= "SPELL_INTERRUPT" and event ~= "SPELL_CAST_SUCCESS" then return end
+
+    if event == "SPELL_INTERRUPT" then
+        local _, _, icon = GetSpellInfo(spellId)
+        local start = GetTime()
+        local duration = interrupts[spellId]
+
+        for _, namePlate in pairs(C_NamePlate.GetNamePlates(issecure())) do
+            local frame = namePlate.UnitFrame
+            local unit = frame.displayedUnit
+            
+            if not UnitIsUnit(frame.displayedUnit, "player") and UnitIsPlayer(frame.displayedUnit) then 
+                if UnitGUID(unit) == destGUID then
+                    frame.cc.interrupt.spellId = spellId
+                    frame.cc.interrupt.icon = icon
+                    frame.cc.interrupt.start = start
+                    frame.cc.interrupt.expire = start + duration
+
+                    self:ApplyCC(frame.cc)
+
+                    C_Timer.After(duration, function()
+                        self:UpdateCC(frame)
+                    end)
+                end
+            end
+        end
+    end
+end
+
+function JokPlates:UpdateIcon(button, unit, index, filter)
+    local name, icon, count, debuffType, duration, expire, _, canStealOrPurge, _, spellID, _, _, _, nameplateShowAll = UnitAura(unit, index, filter)
+
+    if button.spellID ~= spellID or button.expire ~= expire or button.count ~= count or button.duration ~= duration then
+        CooldownFrame_Set(button.cd, expire - duration, duration, true, true)
+    end
+
+    button.icon:SetTexture(icon)
+    button.expire = expire
+    button.duration = duration
+    button.spellID = spellID
+    button.canStealOrPurge = canStealOrPurge
+    button.nameplateShowAll = nameplateShowAll
+
+    button:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_LEFT");
+        GameTooltip:SetUnitAura(unit, index, filter)
+    end)
+
+    button:SetScript("OnLeave", function(self)
+        GameTooltip:ClearLines()
+        GameTooltip:Hide()
+    end)
+
+    if canStealOrPurge then
+        button.overlay:SetVertexColor(1, 1, 1)
+        button.overlay:Show()
+    else
+        button.overlay:Hide()
+    end
+
+    if count and count > 1 then
+        button.count:SetText(count)
+    else
+        button.count:SetText("")
+    end
+
+    --
+    button:Show()
+end
+
 function JokPlates:UpdateBuffs(frame)
     local filter
 
@@ -1010,36 +996,29 @@ function JokPlates:UpdateHealPrediction(frame)
 end
 
 function JokPlates:SetUnit(frame, unit)
-        frame.unit = unit
-        frame.displayedUnit = unit -- For vehicles
-        frame.inVehicle = false
+    frame.unit = unit
+    frame.displayedUnit = unit -- For vehicles
+    frame.inVehicle = false
 
-        if (unit) then
-            frame.unitGUID = UnitGUID(unit)
-            frame.npcID = JokPlates:GetNpcID(unit)
-            self:RegisterEvents(frame)
-        else
-            self:UnregisterEvents(frame)
-            if ( frame.castBar ) then 
-                CastingBarFrame_SetUnit(frame.castBar, nil, nil, nil);
-            end
-        end
-        self:RefreshNameplate(frame)
+    if (unit) then
+        frame.unitGUID = UnitGUID(unit)
+        frame.npcID = JokPlates:GetNpcID(unit)
+        self:RegisterNamePlateEvents(frame)
+    else
+        self:UnregisterNamePlateEvents(frame)
+    end
 end
 
 function JokPlates:RefreshNameplate(frame)
-    if ( UnitExists(frame.displayedUnit) ) then
-        self:UpdateName(frame)
-        self:UpdateMaxHealth(frame)
-        self:UpdateHealth(frame)
-        self:UpdateColor(frame)
-        self:UpdateSize(frame)
-        self:UpdateSelectionHighlight(frame)
-        self:UpdateCC(frame)
-        self:UpdateBuffs(frame)
-        self:UpdateHealthText(frame)
-        self:UpdateHealPrediction(frame)
-    end
+    self:UpdateName(frame)
+    self:UpdateHealth(frame)
+    self:UpdateColor(frame)
+    self:UpdateSize(frame)
+    self:UpdateSelectionHighlight(frame)
+    self:UpdateCC(frame)
+    self:UpdateBuffs(frame)
+    self:UpdateHealthText(frame)
+    self:UpdateHealPrediction(frame)
 end
 
 function JokPlates:UpdateAllNameplates()
@@ -1049,14 +1028,12 @@ function JokPlates:UpdateAllNameplates()
     end 
 end
 
-function JokPlates_OnEvent(frame, event, ...)
-    local arg1, arg2, arg3, arg4 = ...
+function JokPlates_NamePlate_OnEvent(frame, event, ...)
+    local arg1 = ...
     local self = JokPlates
 
     if (event == "PLAYER_TARGET_CHANGED") then
         self:UpdateSelectionHighlight(frame)
-    elseif ( event == "UNIT_FACTION" ) then
-        self:UpdateAllNameplates(frame)
     elseif (arg1 == frame.unit or arg1 == self.displayedUnit) then
         if ( event == "UNIT_HEALTH" or event == "UNIT_HEALTH_FREQUENT" ) then
             self:UpdateHealth(frame)
@@ -1067,14 +1044,10 @@ function JokPlates_OnEvent(frame, event, ...)
             self:UpdateHealth(frame)
             self:UpdateHealthText(frame)
             self:UpdateHealPrediction(frame)
+        elseif (event == "UNIT_THREAT_LIST_UPDATE") then 
+            self:UpdateColor(frame)
         elseif (event == "UNIT_NAME_UPDATE") then
             self:UpdateName(frame)
-            self:UpdateColor(frame) 
-        elseif (event == "UNIT_THREAT_LIST_UPDATE") then
-            if ( frame.optionTable.considerSelectionInCombatAsHostile ) then
-                self:UpdateColor(frame);
-                self:UpdateName(frame);
-            end
         elseif ( event == "UNIT_HEAL_PREDICTION" ) then
            self:UpdateHealPrediction(frame)
         elseif ( event == "UNIT_ABSORB_AMOUNT_CHANGED" ) then
@@ -1088,43 +1061,24 @@ function JokPlates_OnEvent(frame, event, ...)
     end
 end
 
-function JokPlates:RegisterEvents(frame)
+function JokPlates:RegisterNamePlateEvents(frame)
     local unit = frame.unit
 
     frame:RegisterEvent("PLAYER_TARGET_CHANGED");
-    frame:RegisterEvent("UNIT_FACTION");
-    frame:RegisterEvent("UNIT_HEALTH_FREQUENT");
-    frame:RegisterEvent("UNIT_HEALTH");
-    frame:RegisterEvent("UNIT_MAXHEALTH");
-    frame:RegisterEvent("UNIT_THREAT_LIST_UPDATE")
-    frame:RegisterEvent("UNIT_NAME_UPDATE")
-    frame:RegisterEvent("UNIT_HEAL_PREDICTION")  
-    frame:RegisterEvent("UNIT_ABSORB_AMOUNT_CHANGED");
-    frame:RegisterEvent("UNIT_HEAL_ABSORB_AMOUNT_CHANGED");
-    frame:RegisterEvent("UNIT_AURA");
+    frame:RegisterUnitEvent("UNIT_HEALTH_FREQUENT", unit);
+    frame:RegisterUnitEvent("UNIT_HEALTH", unit);
+    frame:RegisterUnitEvent("UNIT_MAXHEALTH", unit);
+    frame:RegisterUnitEvent("UNIT_THREAT_LIST_UPDATE", unit)
+    frame:RegisterUnitEvent("UNIT_NAME_UPDATE", unit)
+    frame:RegisterUnitEvent("UNIT_HEAL_PREDICTION", unit)  
+    frame:RegisterUnitEvent("UNIT_ABSORB_AMOUNT_CHANGED", unit);
+    frame:RegisterUnitEvent("UNIT_HEAL_ABSORB_AMOUNT_CHANGED", unit);
+    frame:RegisterUnitEvent("UNIT_AURA", unit);
 
-    self:RegisterUnitEvents(frame)
-
-    frame:SetScript("OnEvent", JokPlates_OnEvent)
+    frame:SetScript("OnEvent", JokPlates_NamePlate_OnEvent)
 end
 
-function JokPlates:RegisterUnitEvents(frame)
-    local unit = frame.unit;
-    local displayedUnit;
-    if ( unit ~= frame.displayedUnit ) then
-        displayedUnit = frame.displayedUnit;
-    end
-
-    frame:RegisterUnitEvent("UNIT_MAXHEALTH", unit, displayedUnit);
-    frame:RegisterUnitEvent("UNIT_HEALTH", unit, displayedUnit);
-    frame:RegisterUnitEvent("UNIT_HEALTH_FREQUENT", unit, displayedUnit);
-    frame:RegisterUnitEvent("UNIT_AURA", unit, displayedUnit);
-    frame:RegisterUnitEvent("UNIT_THREAT_SITUATION_UPDATE", unit, displayedUnit);
-    frame:RegisterUnitEvent("UNIT_THREAT_LIST_UPDATE", unit, displayedUnit);
-    frame:RegisterUnitEvent("UNIT_HEAL_PREDICTION", unit, displayedUnit);
-end
-
-function JokPlates:UnregisterEvents(frame)
+function JokPlates:UnregisterNamePlateEvents(frame)
     frame:UnregisterAllEvents()
     frame:SetScript("OnEvent", nil)
 end
@@ -1137,9 +1091,9 @@ function JokPlates:NAME_PLATE_CREATED(_, namePlate)
 
     if ( frame:IsForbidden() ) then return end
 
-    frame.unit = nil
-    frame.displayedUnit = nil -- For vehicles
-    frame.inVehicle = nil
+    -- frame.healthBar:SetStatusBarTexture(statusBar)
+    -- frame.selectionHighlight:SetTexture(statusBar)
+    -- frame.castBar:SetStatusBarTexture(statusBar)
 
     self:UpdateCastbar(frame)
     self:AddHealthbarText(namePlate)
@@ -1287,7 +1241,7 @@ function JokPlates:NAME_PLATE_UNIT_REMOVED(_, unit)
     frame.healthBar.LeftText:Hide()
     frame.healthBar.RightText:Hide()
 
-    --CastingBarFrame_SetUnit(frame.castBar, nil, false, true)
+    CastingBarFrame_SetUnit(frame.castBar, nil, false, true)
 end
 
 function JokPlates:COMBAT_LOG_EVENT_UNFILTERED()
@@ -1323,7 +1277,7 @@ function JokPlates:COMBAT_LOG_EVENT_UNFILTERED()
 end
 
 function JokPlates:UNIT_FACTION()  
-    --self:UpdateAllNameplates()
+    self:UpdateAllNameplates()
 end
 
 function JokPlates:UPDATE_MOUSEOVER_UNIT()

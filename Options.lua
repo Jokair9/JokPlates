@@ -407,13 +407,12 @@ function JokPlates:SetupOptions()
 				name = "Size",
 				order = 1,
 				type = "group",
+				childGroups = "tab",
 				args = {
 				    scale = {
-				        name = "Nameplate Scale",
+				        name = "Scale",
 				        type = "group",
-				        inline = true,
-				        order = 10,
-				        
+				        order = 10,				        
 				        args = {
 				            globalScale = {
 				                type = "range",
@@ -425,7 +424,8 @@ function JokPlates:SetupOptions()
 				                step = 0.1,
 				                order = 1,
 				                set = function(info,val) 
-				                    SetCVar("nameplateGlobalScale", val)
+				                    C_CVar.SetCVar("nameplateGlobalScale", val)
+				                    self.settings.globalScale = val
 				                    JokPlates:ForceUpdate()
 				                end,
 				                get = function(info) return tonumber(GetCVar("nameplateGlobalScale")) end
@@ -440,7 +440,8 @@ function JokPlates:SetupOptions()
 				                step = 0.1,
 				                order = 2,
 				                set = function(info,val) 
-				                    SetCVar("nameplateSelectedScale", val)
+				                    C_CVar.SetCVar("nameplateSelectedScale", val)
+				                    self.settings.selectedScale = val
 				                end,
 				                get = function(info) return tonumber(GetCVar("nameplateSelectedScale")) end
 				            },
@@ -454,53 +455,146 @@ function JokPlates:SetupOptions()
 				                step = 0.1,
 				                order = 3,
 				                set = function(info,val)
-				                    SetCVar("nameplateLargerScale", val)
+				                    C_CVar.SetCVar("nameplateLargerScale", val)
+				                    self.settings.largerScale = val
 				                end,
 				                get = function(info) return tonumber(GetCVar("nameplateLargerScale")) end
 				            },
 				        },
 				    },				    
-				    nameplateSize = {
+				    size = {
 				        name = "Nameplate Size",
 				        type = "group",
-				        inline = true,
-				        order = 50,
-				        
+				        order = 50,				        
 				        args = {
-				            healthHeight = {
-				                type = "range",
-				                isPercent = false,
-				                name = "Health Bar Height",
-				                desc = "",
-				                min = 3,
-				                max = 12,
-				                step = 0.1,
-				                order = 1,
-				                set = function(info,val) self.settings.healthHeight = val 
-				                JokPlates:ForceUpdate()
-				                end,
-				                get = function(info, val) return self.settings.healthHeight end
-				            },
-				            healthWidth = {
-				                type = "range",
-				                isPercent = false,
-				                name = "Health Bar Width",
-				                desc = "",
-				                min = 10,
-				                max = 200,
-				                step = 1,
-				                order = 2,
-				                set = function(info,val) self.settings.healthWidth = val
-				                    C_NamePlate.SetNamePlateEnemySize(val,40)
-				                end,
-				                get = function(info, val) return self.settings.healthWidth end
-				            },
+				        	enemy = {
+						        name = "Enemy Nameplates",
+						        type = "group",
+						        inline = true,
+						        order = 50,						        
+						        args = {
+						            healthHeight = {
+						                type = "range",
+						                isPercent = false,
+						                name = "Health Bar Height",
+						                desc = "",
+						                min = 3,
+						                max = 12,
+						                step = 0.1,
+						                order = 1,
+						                set = function(info,val) self.settings.enemy.height = val 
+						                JokPlates:ForceUpdate()
+						                end,
+						                get = function(info, val) return self.settings.enemy.height end
+						            },
+						            healthWidth = {
+						                type = "range",
+						                isPercent = false,
+						                name = "Health Bar Width",
+						                desc = "",
+						                min = 10,
+						                max = 200,
+						                step = 1,
+						                order = 2,
+						                set = function(info,val) self.settings.enemy.width = val
+						                JokPlates:ForceUpdate()
+						                end,
+						                get = function(info, val) return self.settings.enemy.width end
+						            },
+						        },
+						    },
+						    friendly = {
+						        name = "Friendly Nameplates",
+						        type = "group",
+						        inline = true,
+						        order = 50,
+						        
+						        args = {
+						            healthHeight = {
+						                type = "range",
+						                isPercent = false,
+						                name = "Health Bar Height",
+						                desc = "",
+						                min = 3,
+						                max = 12,
+						                step = 0.1,
+						                order = 1,
+						                set = function(info,val) self.settings.friendly.height = val 
+						                JokPlates:ForceUpdate()
+						                end,
+						                get = function(info, val) return self.settings.friendly.height end
+						            },
+						            healthWidth = {
+						                type = "range",
+						                isPercent = false,
+						                name = "Health Bar Width",
+						                desc = "",
+						                min = 10,
+						                max = 200,
+						                step = 1,
+						                order = 2,
+						                set = function(info,val) self.settings.friendly.width = val
+						                JokPlates:ForceUpdate()
+						                end,
+						                get = function(info, val) return self.settings.friendly.width end
+						            },
+						        },
+						    },
+						    clickBox = {
+						        name = "Click Box",
+						        type = "group",
+						        inline = true,
+						        order = 60,
+						        
+						        args = {
+						        	height = {
+						                type = "range",
+						                isPercent = false,
+						                name = "Height",
+						                desc = "",
+						                min = 5,
+						                max = 50,
+						                step = 1,
+						                order = 1,
+						                set = function(info,val) self.settings.clickbox.height = val
+						                	C_NamePlate.SetNamePlateEnemySize(self.settings.clickbox.width, self.settings.clickbox.height)
+						                	for _, namePlate in ipairs(C_NamePlate.GetNamePlates(issecure())) do
+									            namePlate:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", tile = true, tileSize = 16, edgeFile = [[Interface\Buttons\WHITE8X8]], edgeSize = 1})
+									            C_Timer.After(3, function()
+									                namePlate:SetBackdrop(nil)
+									            end)
+									        end
+						                end,
+						                get = function(info, val) return self.settings.clickbox.height end
+						            },
+						            width = {
+						                type = "range",
+						                isPercent = false,
+						                name = "Width",
+						                desc = "",
+						                min = 5,
+						                max = 200,
+						                step = 1,
+						                order = 2,
+						                set = function(info,val) self.settings.clickbox.width = val
+						                	C_NamePlate.SetNamePlateEnemySize(self.settings.clickbox.width, self.settings.clickbox.height)
+						                	for _, namePlate in ipairs(C_NamePlate.GetNamePlates(issecure())) do
+									            namePlate:SetBackdrop({bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", tile = true, tileSize = 16, edgeFile = [[Interface\Buttons\WHITE8X8]], edgeSize = 1})
+									            C_Timer.After(3, function()
+									                namePlate:SetBackdrop(nil)
+									            end)
+									        end
+						                end,
+						                get = function(info, val) return self.settings.clickbox.width end
+						            },
+						        },
+						    },
 				        },
 				    },
 				    personalSize = {
-				        name = "Personal Nameplate Size",
+				        name = "Personal Nameplate",
 				        type = "group",
-				        inline = true,
+				       -- inline = true,
 				        order = 50,
 				        
 				        args = {
@@ -513,10 +607,10 @@ function JokPlates:SetupOptions()
 				                max = 30,
 				                step = 1,
 				                order = 1,
-				                set = function(info,val) self.settings.personalHealthHeight = val
+				                set = function(info,val) self.settings.personal.healthHeight = val
 				                JokPlates:ForceUpdate()
 				                end,
-				                get = function(info, val) return self.settings.personalHealthHeight end
+				                get = function(info, val) return self.settings.personal.healthHeight end
 				            },
 				            personalManaHeight = {
 				                type = "range",
@@ -527,11 +621,10 @@ function JokPlates:SetupOptions()
 				                max = 30,
 				                step = 1,
 				                order = 2,
-				                set = function(info,val) self.settings.personalManaHeight = val 
-                                DefaultCompactNamePlatePlayerFrameSetUpOptions.healthBarHeight = val
-				                ClassNameplateManaBarFrame:SetSize(self.settings.personalWidth-24, val)
+				                set = function(info,val) self.settings.personal.powerHeight = val 
+				                ClassNameplateManaBarFrame:SetSize(self.settings.personal.width, self.settings.personal.powerHeight)
 				                end,
-				                get = function(info, val) return self.settings.personalManaHeight end
+				                get = function(info, val) return self.settings.personal.powerHeight end
 				            },
 				            personalWidth = {
 				                type = "range",
@@ -542,12 +635,10 @@ function JokPlates:SetupOptions()
 				                max = 220,
 				                step = 1,
 				                order = 3,
-				                set = function(info,val) self.settings.personalWidth = val
+				                set = function(info,val) self.settings.personal.width = val
                                     JokPlates:ForceUpdate()
-				                    C_NamePlate.SetNamePlateSelfSize(val,0.1)
-				                    ClassNameplateManaBarFrame:SetSize(val-24, self.settings.personalManaHeight)
 				                end,
-				                get = function(info, val) return self.settings.personalWidth end
+				                get = function(info, val) return self.settings.personal.width end
 				            },
                             personalPosition = {
                                 type = "range",
@@ -560,9 +651,9 @@ function JokPlates:SetupOptions()
                                 order = 4,
                                 set = function(info,val)
                                     val = floor (val)
-                    
-                                    SetCVar ("nameplateSelfBottomInset", val / 100)
-                                    SetCVar ("nameplateSelfTopInset", abs (val - 94) / 100)
+                    				self.settings.personalPosition = val
+                                    C_CVar.SetCVar ("nameplateSelfBottomInset", val / 100)
+                                    C_CVar.SetCVar ("nameplateSelfTopInset", abs (val - 94) / 100)
                                 end,
                                 get = function(info, val) return tonumber (GetCVar ("nameplateSelfBottomInset")*100) end
                             },
@@ -593,10 +684,10 @@ function JokPlates:SetupOptions()
 				                set = function(info,checked)
 				                    if not checked then
 				                        self.settings.sticky = false
-				                        SetCVar("nameplateOtherTopInset", -1,true)
-				                        SetCVar("nameplateOtherBottomInset", -1,true)
+				                        C_CVar.SetCVar("nameplateOtherTopInset", -1,true)
+				                        C_CVar.SetCVar("nameplateOtherBottomInset", -1,true)
 				                        else
-				                        for _, v in pairs({"nameplateOtherTopInset", "nameplateOtherBottomInset"}) do SetCVar(v, GetCVarDefault(v),true) end
+				                        for _, v in pairs({"nameplateOtherTopInset", "nameplateOtherBottomInset"}) do C_CVar.SetCVar(v, GetCVarDefault(v),true) end
 				                    end
 				                    self.settings.sticky = checked
 				                end,
@@ -612,7 +703,7 @@ function JokPlates:SetupOptions()
 				                step = 1,
 				                order = 4,
 				                set = function(info,val) 
-				                    SetCVar("nameplateMaxDistance", val)
+				                    C_CVar.SetCVar("nameplateMaxDistance", val)
 				                end,
 				                get = function(info) return tonumber(GetCVar("nameplateMaxDistance")) end
 				            },
@@ -635,13 +726,19 @@ function JokPlates:SetupOptions()
 
 				            	},
 				                order = 1,
-				                set = function(info,val)				                    
-				                    SetCVar("nameplateMotion", val)		
+				                set = function(info,val)
+				                	self.settings.motion = val				                    
+				                    C_CVar.SetCVar("nameplateMotion", val)
 				                end,
 				                get = function(info) 
 				                	return tonumber(GetCVar("nameplateMotion"))
 				            	end
 				            },
+				            space = {
+								type = "description",
+								name = "",
+								order = 2
+							},
 				            verticalOverlap = {
 				                type = "range",
 				                isPercent = false,
@@ -653,7 +750,7 @@ function JokPlates:SetupOptions()
 				                order = 3,
 				                disabled = function(info) return  not self:GetCVar("nameplateMotion") end,
 				                set = function(info,val)
-				                    SetCVar("nameplateOverlapV", val)
+				                    C_CVar.SetCVar("nameplateOverlapV", val)
 				                end,
 				                get = function(info) return tonumber(GetCVar("nameplateOverlapV")) end
 				            },
@@ -668,7 +765,7 @@ function JokPlates:SetupOptions()
 				                order = 4,
 				                disabled = function(info) return  not self:GetCVar("nameplateMotion") end,
 				                set = function(info,val)
-				                    SetCVar("nameplateOverlapH", val)
+				                    C_CVar.SetCVar("nameplateOverlapH", val)
 				                end,
 				                get = function(info) return tonumber(GetCVar("nameplateOverlapH")) end
 				            },
@@ -691,7 +788,8 @@ function JokPlates:SetupOptions()
 				                step = 0.05,
 				                order = 1,
 				                set = function(info,val)
-				                    SetCVar("nameplateMinAlpha", val)
+				                	self.settings.minAlpha = val
+				                    C_CVar.SetCVar("nameplateMinAlpha", val)
 				                end,
 				                get = function(info) return tonumber(GetCVar("nameplateMinAlpha")) end
 				            },
@@ -705,7 +803,8 @@ function JokPlates:SetupOptions()
 				                step = 0.05,
 				                order = 1,
 				                set = function(info,val)
-				                    SetCVar("nameplateSelfAlpha", val)
+				                	self.settings.selfAlpha = val
+				                    C_CVar.SetCVar("nameplateSelfAlpha", val)
 				                end,
 				                get = function(info) return tonumber(GetCVar("nameplateSelfAlpha")) end
 				            },

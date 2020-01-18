@@ -1269,10 +1269,17 @@ function JokPlates:ClassNameplateManaBar_OnUpdate(self)
     end
 
     local predictedValue = self.currValue
+    local doubled = false
 
     if PowerPrediction[self.powerType] then
         for spellID, spell in pairs(PowerPrediction[self.powerType]) do
             if castingSpellID == spellID then
+            	for i = 1, BUFF_MAX_DISPLAY do       
+        			local name, _, _, _, duration, expire, caster, canStealOrPurge, nameplateShowPersonal, spellID, _, isBossDebuff, castByPlayer, nameplateShowAll = UnitAura("player", i, "HELPFUL")
+        			if spellID == 298357 then
+        				doubled = true
+        			end
+        		end
                 predictedValue = self.currValue + spell.power
             end
         end

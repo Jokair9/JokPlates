@@ -1,7 +1,7 @@
-## Interface: 80100
+## Interface: 80300
 ## Title: |cffFF7D0AJok|rPlates
 ## Notes: Improvement to Blizzard Nameplates
-## Version: v1
+## Version: v1.1
 ## Author: Jokair9
 ## DefaultState: Enabled
 ## SavedVariables: JokPlatesDB
